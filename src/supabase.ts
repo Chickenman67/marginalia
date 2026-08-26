@@ -1,6 +1,6 @@
 import { config, STORAGE_KEYS } from "./config";
 import type { Item, ParsedItem, PolishResult, DraftItem } from "./types";
-import { getSpaceToken, genTokenPair } from "./store";
+import { getSpaceToken, getSpaceId, genTokenPair } from "./store";
 
 let client: import("@supabase/supabase-js").SupabaseClient | null = null;
 
@@ -17,8 +17,8 @@ async function getClient() {
 
 export async function fetchItems(): Promise<Item[]> {
   const supabase = await getClient();
-  const token = getSpaceToken();
-  await ensureSpace(supabase, token);
+  const token = getSpaceId();
+  await ensureSpace(supabase, getSpaceToken());
   const { data, error } = await supabase
     .from("items")
     .select("*")
@@ -62,7 +62,7 @@ export async function subscribeToSpace(token: string, onUpdate: (items: Item[]) 
   const supabase = await getClient();
   supabase
     .channel(`space:${token}`)
-    .on("postgres_changes", { event: "*", schema: "public", table: "items", filter: `space_token=eq.${token}` }, async () => {
+    .on("postgres_changes", { event: "*", schema: "public", table: "items", filter: `space_token=eq.${getSpaceId()}` }, async () => {
       onUpdate(await fetchItems());
     })
     .subscribe();

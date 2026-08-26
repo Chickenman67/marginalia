@@ -1,6 +1,6 @@
 import { config, isDemoMode, STORAGE_KEYS } from "./config";
 import type { Item, ParsedItem } from "./types";
-import { fetchItems, insertItem, updateItem, removeItem, subscribeToSpace } from "./supabase";
+import { fetchItems, insertItem, updateItem, removeItem, subscribeToSpace, migrateLegacyToken } from "./supabase";
 
 const TOKEN_BYTES = 16; // 128 bits
 
@@ -78,16 +78,24 @@ export async function loadItems(): Promise<void> {
     const raw = localStorage.getItem("marginalia.items");
     items = raw ? (JSON.parse(raw) as Item[]) : seed();
   } else {
+    if (isLegacyToken(getSpaceToken())) {
+      try {
+        const { id, secret } = await migrateLegacyToken(getSpaceToken());
+        setSpaceToken(id, secret);
+      } catch {
+        /* fall through; if RLS denies, user re-provisions via UI */
+      }
+    }
     items = await fetchItems();
   }
   items.sort(byCreated);
   emit();
 }
 
-export async function addItem(parsed: ParsedItem, spaceToken: string): Promise<void> {
+export async function addItem(parsed: ParsedItem, _spaceToken: string): Promise<void> {
   const item: Item = {
     id: crypto.randomUUID(),
-    space_token: spaceToken,
+    space_token: getSpaceId(),
     kind: parsed.kind,
     title: parsed.title,
     datetime: parsed.datetime,
