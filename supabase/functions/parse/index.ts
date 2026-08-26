@@ -6,7 +6,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const NVIDIA_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
-const MODEL = "meta/llama-3.1-8b-instruct";
+const MODEL = "mistralai/mistral-nemotron";
 
 // Simple in-memory rate limit (per edge instance). Swap for Redis/KV if needed.
 const WINDOW_MS = 60_000;
@@ -42,6 +42,19 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: "missing space token" }), { status: 401, headers: { ...cors, "content-type": "application/json" } });
   }
 
+  // Split id.secret and validate both halves against the spaces table.
+  const dot = spaceToken.indexOf(".");
+  const spaceId = dot === -1 ? spaceToken : spaceToken.slice(0, dot);
+  const spaceSecret = dot === -1 ? "" : spaceToken.slice(dot + 1);
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+  const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
+  const { data: space, error: spErr } = await supabase
+    .from("spaces").select("token").eq("token", spaceId).eq("secret", spaceSecret).maybeSingle();
+  if (spErr || !space) {
+    return new Response(JSON.stringify({ error: "unauthorized space" }), { status: 401, headers: { ...cors, "content-type": "application/json" } });
+  }
+
   if (rateLimited()) {
     return new Response(JSON.stringify({ error: "rate limited, try again shortly" }), { status: 429, headers: { ...cors, "content-type": "application/json" } });
   }
@@ -64,8 +77,7 @@ Deno.serve(async (req) => {
 
   // keep space token alive (optional, ignores errors)
   try {
-    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE")!, { auth: { persistSession: false } });
-    await supabase.from("spaces").update({ last_active_at: new Date().toISOString() }).eq("token", spaceToken);
+    await supabase.from("spaces").update({ last_active_at: new Date().toISOString() }).eq("token", spaceId);
   } catch { /* non-fatal */ }
 
   const nvidiaRes = await fetch(NVIDIA_URL, {
