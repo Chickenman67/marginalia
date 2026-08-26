@@ -1,0 +1,16 @@
+project_id = "PROJECT_REF"
+
+[api]
+enabled = true
+
+[db]
+port = 54322
+
+[auth]
+enabled = false
+
+[realtime]
+enabled = true
+
+[studio]
+enabled = true
