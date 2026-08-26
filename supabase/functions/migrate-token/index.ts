@@ -30,9 +30,12 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ ok: false, error: "bad input" }), { status: 400, headers: { ...cors, "content-type": "application/json" } });
   }
 
-  const { error } = await supabase.rpc("migrate_legacy_token", { old_token: oldToken, new_id: newId, new_secret: newSecret });
+  const { data, error } = await supabase.rpc("migrate_legacy_token", { old_token: oldToken, new_id: newId, new_secret: newSecret });
   if (error) {
     return new Response(JSON.stringify({ ok: false, error: error.message }), { status: 500, headers: { ...cors, "content-type": "application/json" } });
+  }
+  if (data === false) {
+    return new Response(JSON.stringify({ ok: false, error: "no legacy space matched" }), { status: 200, headers: { ...cors, "content-type": "application/json" } });
   }
 
   return new Response(JSON.stringify({ ok: true }), { headers: { ...cors, "content-type": "application/json" } });
