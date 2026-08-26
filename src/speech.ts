@@ -18,18 +18,24 @@ export function createSpeech(): SpeechController {
   };
   if (!SR) return ctrl;
 
+  let acc = "";
   const rec = new SR();
   rec.interimResults = true;
-  rec.continuous = false;
+  rec.continuous = true;
   rec.lang = navigator.language || "en-US";
 
   rec.onresult = (e: any) => {
-    const text = e.results[0][0].transcript;
-    ctrl.onResult(text);
+    let chunk = "";
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      chunk += e.results[i][0].transcript;
+    }
+    if (e.results[e.results.length - 1].isFinal) { acc += chunk + " "; }
+    ctrl.onResult(acc.trim());
   };
   rec.onend = () => ctrl.onState(false);
   rec.onerror = () => ctrl.onState(false);
   ctrl.start = () => {
+    acc = "";
     try { rec.start(); ctrl.onState(true); } catch { /* already started */ }
   };
   ctrl.stop = () => rec.stop();
