@@ -34,11 +34,27 @@
 
     <div class="dock">
       <div class="dock-inner">
-        <div class="preview" id="preview"><span id="previewText"></span><span class="x" id="previewX">✕</span></div>
-        <div class="bar">
-          <button class="mic" id="mic" title="Speak" aria-label="Speak">🎙</button>
-          <input id="phrase" placeholder="Speak or type — “dentist Tuesday 3pm”, “call mom after lunch”" aria-label="New item" />
+        <div class="dock-head">
+          <button class="btn toggle" id="dictateToggle" aria-pressed="false">Dictate</button>
         </div>
+
+        <div id="quick">
+          <div class="preview" id="preview"><span id="previewText"></span><span class="x" id="previewX">✕</span></div>
+          <div class="bar">
+            <button class="mic" id="mic" title="Speak" aria-label="Speak">🎙</button>
+            <input id="phrase" placeholder="Speak or type — “dentist Tuesday 3pm”, “call mom after lunch”" aria-label="New item" />
+          </div>
+        </div>
+
+        <div id="dictate" hidden>
+          <textarea id="para" rows="4" placeholder="Ramble away — “dentist Tuesday 3pm, call mom after lunch, pick up groceries tomorrow”"></textarea>
+          <div class="dictate-bar">
+            <button class="mic" id="paraMic" title="Speak" aria-label="Speak">🎙</button>
+            <button class="btn primary" id="process">Process</button>
+          </div>
+          <div id="draft"></div>
+        </div>
+
         <div class="hint" id="hint">Press <span class="kbd">Enter</span> to add · voice works in Chrome, Edge, Safari (not Firefox)</div>
         <div class="demo-note"></div>
       </div>
