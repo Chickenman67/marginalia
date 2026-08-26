@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Marginalia — schedule & todos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Marginalia</h1>
+      <span class="tag">your quiet planner</span>
+      <span class="space-chip" id="spaceChip">
+        <span class="dot"></span><span id="spaceLabel">demo</span>
+        <button id="copyToken" title="Copy space token">copy</button>
+      </span>
+    </header>
+
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" aria-selected="true" data-view="schedule">Schedule <span class="count" id="cSched"></span></button>
+      <button class="tab" role="tab" aria-selected="false" data-view="todos">Todos <span class="count" id="cTodo"></span></button>
+      <button class="tab" role="tab" aria-selected="false" data-view="due">Due <span class="count" id="cDue"></span></button>
+    </div>
+
+    <main>
+      <div id="view-schedule"></div>
+      <div id="view-todos" hidden></div>
+      <div id="view-due" hidden></div>
+    </main>
+
+    <div class="dock">
+      <div class="dock-inner">
+        <div class="preview" id="preview"><span id="previewText"></span><span class="x" id="previewX">✕</span></div>
+        <div class="bar">
+          <button class="mic" id="mic" title="Speak" aria-label="Speak">🎙</button>
+          <input id="phrase" placeholder="Speak or type — “dentist Tuesday 3pm”, “call mom after lunch”" aria-label="New item" />
+        </div>
+        <div class="hint" id="hint">Press <span class="kbd">Enter</span> to add · voice works in Chrome, Edge, Safari (not Firefox)</div>
+        <div class="demo-note"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="back" id="tokenModal">
+    <div class="modal">
+      <h2>Your space</h2>
+      <p>A space keeps your tasks private. Copy its token to open the same list on another device, or paste a token to join an existing space.</p>
+      <input id="tokenInput" placeholder="blank = new random space" />
+      <div class="row">
+        <button class="btn" id="tokenNew">New space</button>
+        <button class="btn primary" id="tokenGo">Use this space</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="back" id="settingsModal">
+    <div class="modal">
+      <h2>Settings</h2>
+      <p>Default parsing is NVIDIA (free, no key). Add your own key for a faster fallback.</p>
+      <select id="provider">
+        <option value="nvidia">NVIDIA (default, via proxy)</option>
+        <option value="gemini">Gemini</option>
+        <option value="groq">Groq</option>
+      </select>
+      <input id="apiKey" placeholder="API key (optional)" />
+
+      <label class="toggle"><input type="checkbox" id="setAutoRemind" /> Remind me at each event's time</label>
+      <label class="toggle"><input type="checkbox" id="setNotify" /> Browser notifications (while app is open)</label>
+
+      <div class="row">
+        <button class="btn" id="settingsCancel">Close</button>
+        <button class="btn primary" id="settingsSave">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

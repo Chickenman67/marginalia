@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Marginalia — schedule & todos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --paper: #f6f3ec;
+    --panel: #fffdf8;
+    --ink: #23201b;
+    --muted: #7c756a;
+    --faint: #a9a294;
+    --line: #e7e1d4;
+    --line-strong: #d8d0bf;
+    --event: #b4542f;     /* terracotta */
+    --event-soft: #f6e7df;
+    --todo: #3f7d6e;      /* sage */
+    --todo-soft: #e3efe9;
+    --danger: #b4452f;
+    --shadow: 0 1px 2px rgba(35,32,27,.04), 0 8px 24px rgba(35,32,27,.05);
+    --r: 12px;
+    --maxw: 760px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    background: var(--paper); color: var(--ink);
+    font-family: "Inter", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    font-size: 15px; line-height: 1.5; display: flex; justify-content: center;
+    -webkit-font-smoothing: antialiased;
+  }
+  .app { width: 100%; max-width: var(--maxw); min-height: 100vh; display: flex; flex-direction: column; }
+
+  /* header */
+  header {
+    padding: 22px 22px 0; display: flex; align-items: baseline; gap: 12px;
+  }
+  header h1 {
+    font-family: "Fraunces", Georgia, serif; font-weight: 500; font-size: 26px;
+    letter-spacing: -.01em; margin: 0;
+  }
+  header .tag { font-size: 12.5px; color: var(--muted); }
+  .space-chip {
+    margin-left: auto; font-size: 12px; color: var(--muted); background: var(--panel);
+    border: 1px solid var(--line); padding: 6px 11px; border-radius: 999px;
+    display: inline-flex; align-items: center; gap: 7px; align-self: center;
+  }
+  .space-chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--todo); }
+  .space-chip button { border: none; background: none; color: var(--faint); cursor: pointer; font: inherit; padding: 0 0 0 4px; }
+
+  /* tabs */
+  .tabs { display: flex; gap: 4px; padding: 14px 22px 0; border-bottom: 1px solid var(--line); }
+  .tab {
+    appearance: none; border: none; background: none; cursor: pointer; font: 500 14.5px/1 "Inter";
+    color: var(--muted); padding: 11px 4px; margin-right: 18px; position: relative;
+  }
+  .tab[aria-selected="true"] { color: var(--ink); }
+  .tab[aria-selected="true"]::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--ink);
+  }
+  .tab .count { font-size: 11px; color: var(--faint); margin-left: 5px; }
+
+  main { flex: 1; padding: 18px 22px 150px; }
+
+  .day-label {
+    font-family: "Fraunces", serif; font-weight: 500; font-size: 14px; color: var(--muted);
+    margin: 18px 2px 8px; letter-spacing: .01em;
+  }
+  .day-label:first-child { margin-top: 4px; }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--r);
+    padding: 13px 14px; margin-bottom: 9px; display: flex; align-items: flex-start; gap: 13px;
+    box-shadow: var(--shadow); transition: border-color .18s, opacity .18s;
+  }
+  .card:hover { border-color: var(--line-strong); }
+  .card.done { opacity: .55; }
+  .card.done .title { text-decoration: line-through; }
+  .card.past { border-style: dashed; }
+
+  .check {
+    appearance: none; -webkit-appearance: none; flex: none; margin-top: 1px;
+    width: 21px; height: 21px; border-radius: 7px; border: 1.5px solid var(--line-strong);
+    background: #fff; cursor: pointer; position: relative; transition: background .15s, border-color .15s;
+  }
+  .check:checked { background: var(--todo); border-color: var(--todo); }
+  .check:checked::after {
+    content: ""; position: absolute; left: 6px; top: 2px; width: 5px; height: 10px;
+    border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg);
+  }
+  .check:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+  .card .body { flex: 1; min-width: 0; }
+  .card .title { font-weight: 500; font-size: 15.5px; }
+  .card .meta { font-size: 13px; color: var(--muted); margin-top: 3px; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+  .badge {
+    font-size: 11px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase;
+    padding: 2px 8px; border-radius: 6px;
+  }
+  .badge.event { color: var(--event); background: var(--event-soft); }
+  .badge.todo { color: var(--todo); background: var(--todo-soft); }
+  .badge.allday { color: var(--muted); background: #efeae0; }
+  .remind { color: var(--event); }
+
+  .del {
+    appearance: none; border: none; background: none; cursor: pointer; flex: none; align-self: center;
+    color: var(--faint); width: 30px; height: 30px; border-radius: 8px; font-size: 16px;
+    transition: background .15s, color .15s;
+  }
+  .del:hover { background: #f4e7e2; color: var(--danger); }
+  .del:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+  .empty { color: var(--faint); text-align: center; padding: 48px 10px; font-style: italic; font-family: "Fraunces", serif; }
+
+  /* input dock */
+  .dock {
+    position: fixed; left: 0; right: 0; bottom: 0; padding: 14px 22px calc(14px + env(safe-area-inset-bottom));
+    background: linear-gradient(180deg, transparent, var(--paper) 38%);
+    display: flex; justify-content: center; pointer-events: none;
+  }
+  .dock-inner { width: 100%; max-width: var(--maxw); pointer-events: auto; }
+  .preview {
+    background: var(--ink); color: #f6f3ec; border-radius: 10px; padding: 10px 13px;
+    margin-bottom: 9px; display: none; align-items: center; gap: 10px; font-size: 14px;
+    box-shadow: var(--shadow); animation: rise .2s ease;
+  }
+  .preview.show { display: flex; }
+  .preview .x { margin-left: auto; cursor: pointer; opacity: .6; }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  .bar { display: flex; gap: 9px; align-items: center; }
+  .bar input {
+    flex: 1; min-width: 0; background: var(--panel); border: 1px solid var(--line-strong);
+    color: var(--ink); padding: 14px 16px; border-radius: 14px; font-size: 16px; font-family: inherit;
+    outline: none; box-shadow: var(--shadow); transition: border-color .15s;
+  }
+  .bar input::placeholder { color: var(--faint); }
+  .bar input:focus { border-color: var(--ink); }
+  .mic {
+    width: 52px; height: 52px; flex: none; border-radius: 50%; border: 1px solid var(--line-strong);
+    background: var(--panel); color: var(--ink); font-size: 21px; cursor: pointer; box-shadow: var(--shadow);
+    transition: background .15s, transform .1s;
+  }
+  .mic:active { transform: scale(.94); }
+  .mic.listening { background: var(--event); color: #fff; border-color: var(--event); animation: pulse 1.4s infinite; }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(180,84,47,.4);} 50% { box-shadow: 0 0 0 9px rgba(180,84,47,0);} }
+  .hint { color: var(--faint); font-size: 11.5px; text-align: center; margin-top: 9px; }
+
+  /* modal */
+  .back {
+    position: fixed; inset: 0; background: rgba(35,32,27,.42); display: none;
+    align-items: center; justify-content: center; z-index: 20; padding: 20px;
+  }
+  .back.show { display: flex; animation: rise .18s ease; }
+  .modal { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 24px; width: 100%; max-width: 380px; box-shadow: 0 20px 60px rgba(35,32,27,.25); }
+  .modal h2 { font-family: "Fraunces", serif; font-weight: 500; margin: 0 0 6px; font-size: 21px; }
+  .modal p { color: var(--muted); margin: 0 0 16px; font-size: 14px; }
+  .modal input, .modal select {
+    width: 100%; padding: 12px 13px; border-radius: 10px; border: 1px solid var(--line-strong);
+    background: #fff; color: var(--ink); margin-bottom: 14px; font: inherit; font-size: 15px; outline: none;
+  }
+  .modal input:focus, .modal select:focus { border-color: var(--ink); }
+  .row { display: flex; gap: 9px; }
+  .btn { flex: 1; padding: 12px; border-radius: 10px; border: 1px solid var(--line-strong); background: #fff; color: var(--ink); cursor: pointer; font: 600 15px "Inter"; transition: background .15s; }
+  .btn:hover { background: #f6f3ec; }
+  .btn.primary { background: var(--ink); border-color: var(--ink); color: #f6f3ec; }
+  .btn.primary:hover { background: #3a352d; }
+  .btn:focus-visible, .mic:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .kbd { font-size: 11px; color: var(--faint); }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Marginalia</h1>
+    <span class="tag">your quiet planner</span>
+    <span class="space-chip" id="spaceChip">
+      <span class="dot"></span><span id="spaceLabel">demo</span>
+      <button id="copyToken" title="Copy space token">copy</button>
+    </span>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" aria-selected="true" data-view="schedule">Schedule <span class="count" id="cSched"></span></button>
+    <button class="tab" role="tab" aria-selected="false" data-view="todos">Todos <span class="count" id="cTodo"></span></button>
+    <button class="tab" role="tab" aria-selected="false" data-view="due">Due <span class="count" id="cDue"></span></button>
+  </div>
+
+  <main>
+    <div id="view-schedule"></div>
+    <div id="view-todos" hidden></div>
+    <div id="view-due" hidden></div>
+  </main>
+
+  <div class="dock">
+    <div class="dock-inner">
+      <div class="preview" id="preview"><span id="previewText"></span><span class="x" id="previewX">✕</span></div>
+      <div class="bar">
+        <button class="mic" id="mic" title="Speak" aria-label="Speak">🎙</button>
+        <input id="phrase" placeholder="Speak or type — “dentist Tuesday 3pm”, “call mom after lunch”" aria-label="New item" />
+      </div>
+      <div class="hint" id="hint">Press <span class="kbd">Enter</span> to add · voice works in Chrome, Edge, Safari (not Firefox)</div>
+    </div>
+  </div>
+</div>
+
+<!-- space modal -->
+<div class="back show" id="tokenModal">
+  <div class="modal">
+    <h2>Your space</h2>
+    <p>A space keeps your tasks private. Copy its token to open the same list on another device.</p>
+    <input id="tokenInput" placeholder="leave blank to generate one" />
+    <div class="row">
+      <button class="btn" id="tokenCancel">Later</button>
+      <button class="btn primary" id="tokenGo">Create space</button>
+    </div>
+  </div>
+</div>
+
+<!-- settings modal -->
+<div class="back" id="settingsModal">
+  <div class="modal">
+    <h2>Settings</h2>
+    <p>Default parsing is NVIDIA (free, no key). Add your own key for a faster fallback.</p>
+    <select id="provider">
+      <option value="nvidia">NVIDIA (default, via proxy)</option>
+      <option value="gemini">Gemini</option>
+      <option value="groq">Groq</option>
+    </select>
+    <input id="apiKey" placeholder="API key (optional)" />
+    <div class="row">
+      <button class="btn" id="settingsCancel">Close</button>
+      <button class="btn primary" id="settingsSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const state = {
+    space: "demo",
+    items: [
+      { id: 1, kind: "event", title: "Dentist", datetime: "2026-08-27T15:00:00", all_day: false, reminder: "2026-08-27T15:00:00", status: "pending" },
+      { id: 2, kind: "event", title: "Mom's birthday", datetime: "2026-08-30T00:00:00", all_day: true, reminder: null, status: "pending" },
+      { id: 3, kind: "todo", title: "Call mom after lunch", status: "pending" },
+      { id: 4, kind: "todo", title: "Buy milk", status: "done" },
+    ],
+  };
+
+  const $ = s => document.querySelector(s);
+  const views = { schedule: $("#view-schedule"), todos: $("#view-todos"), due: $("#view-due") };
+
+  // ---- space modal ----
+  const tokenModal = $("#tokenModal");
+  function closeToken() {
+    const v = $("#tokenInput").value.trim();
+    state.space = v || ("space-" + Math.random().toString(36).slice(2, 10));
+    $("#spaceLabel").textContent = state.space;
+    tokenModal.classList.remove("show"); render();
+  }
+  $("#tokenGo").onclick = closeToken;
+  $("#tokenCancel").onclick = closeToken;
+  $("#copyToken").onclick = () => { navigator.clipboard?.writeText(state.space); };
+
+  // ---- settings modal ----
+  const settingsModal = $("#settingsModal");
+  $("#spaceChip").addEventListener("dblclick", () => settingsModal.classList.add("show"));
+  $("#settingsCancel").onclick = () => settingsModal.classList.remove("show");
+  $("#settingsSave").onclick = () => {
+    localStorage.setItem("scheduleapp.llmKey", $("#apiKey").value.trim());
+    localStorage.setItem("scheduleapp.provider", $("#provider").value);
+    settingsModal.classList.remove("show");
+  };
+
+  // ---- tabs ----
+  document.querySelectorAll(".tab").forEach(t => {
+    t.onclick = () => {
+      document.querySelectorAll(".tab").forEach(x => x.setAttribute("aria-selected", "false"));
+      t.setAttribute("aria-selected", "true");
+      Object.values(views).forEach(v => v.hidden = true);
+      views[t.dataset.view].hidden = false;
+    };
+  });
+
+  // ---- formatting ----
+  function dayKey(dt) {
+    const d = new Date(dt); if (isNaN(d)) return "";
+    const today = new Date(); const t2 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const d2 = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const diff = Math.round((d2 - t2) / 864e5);
+    if (diff === 0) return "Today";
+    if (diff === 1) return "Tomorrow";
+    if (diff === -1) return "Yesterday";
+    if (diff > 1 && diff < 7) return d.toLocaleDateString(undefined, { weekday: "long" });
+    return d.toLocaleDateString(undefined, { month: "long", day: "numeric" });
+  }
+  function clock(dt) {
+    const d = new Date(dt); if (isNaN(d)) return "";
+    return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  }
+
+  // ---- render ----
+  function render() {
+    const events = state.items.filter(i => i.kind === "event").sort((a,b) => a.datetime.localeCompare(b.datetime));
+    const todos = state.items.filter(i => i.kind === "todo").sort((a,b) => (a.status==="done")-(b.status==="done"));
+    const due = state.items.filter(i => i.reminder && new Date(i.reminder) <= new Date() && i.status !== "done");
+
+    $("#cSched").textContent = events.filter(i=>i.status!=="done").length || "";
+    $("#cTodo").textContent = todos.filter(i=>i.status!=="done").length || "";
+    $("#cDue").textContent = due.length || "";
+
+    views.schedule.innerHTML = events.length ? groupByDay(events) : emptyHTML("Nothing scheduled. Speak or type to add one.");
+    views.todos.innerHTML = todos.length ? todos.map(cardHTML).join("") : emptyHTML("No todos. Add one below.");
+    views.due.innerHTML = due.length ? due.map(cardHTML).join("") : emptyHTML("Nothing due right now.");
+    bind();
+  }
+  function emptyHTML(t) { return `<div class="empty">${t}</div>`; }
+  function groupByDay(items) {
+    const groups = {}; let html = "";
+    items.forEach(i => { const k = dayKey(i.datetime); (groups[k] = groups[k] || []).push(i); });
+    Object.keys(groups).forEach(k => { html += `<div class="day-label">${k}</div>` + groups[k].map(cardHTML).join(""); });
+    return html;
+  }
+  function cardHTML(i) {
+    const isPast = i.kind === "event" && new Date(i.datetime) < new Date() && i.status !== "done";
+    const time = i.kind === "event" ? (i.all_day ? "" : clock(i.datetime)) : "";
+    const remind = i.reminder ? `<span class="remind">🔔 ${clock(i.reminder)}</span>` : "";
+    const delTitle = i.kind === "todo" || (i.kind === "event" && views.due.contains) ? "Delete" : "";
+    return `<div class="card ${i.status==="done"?"done":""} ${isPast?"past":""}" data-id="${i.id}">
+      <input type="checkbox" class="check" ${i.status==="done"?"checked":""} aria-label="Complete ${i.title}" />
+      <div class="body">
+        <div class="title">${i.title}</div>
+        <div class="meta">
+          <span class="badge ${i.kind}">${i.kind}</span>
+          ${i.all_day ? `<span class="badge allday">all day</span>` : ""}
+          ${time ? `<span>${time}</span>` : ""}
+          ${remind}
+        </div>
+      </div>
+      <button class="del" title="Delete" aria-label="Delete ${i.title}">🗑</button>
+    </div>`;
+  }
+  function bind() {
+    document.querySelectorAll(".check").forEach(c => {
+      c.onchange = () => {
+        const it = byId(c); if (it) { it.status = c.checked ? "done" : "pending"; render(); }
+      };
+    });
+    document.querySelectorAll(".del").forEach(d => {
+      d.onclick = () => {
+        const id = +d.closest(".card").dataset.id;
+        state.items = state.items.filter(x => x.id !== id); render();
+      };
+    });
+  }
+  function byId(el) { return state.items.find(x => x.id == el.closest(".card").dataset.id); }
+
+  // ---- mock parse (real app calls NVIDIA proxy / LLM) ----
+  function mockParse(text) {
+    const lower = text.toLowerCase();
+    const hasTime = /\d{1,2}(:\d{2})?\s*(am|pm)?|tomorrow|today|tonight|monday|tuesday|wednesday|thursday|friday|saturday|sunday|next week|afternoon|morning|evening|lunch|dinner|noon|birthday/.test(lower);
+    const kind = hasTime ? "event" : "todo";
+    return { title: text.replace(/\b(tomorrow|today|at|on|my)\b/gi, "").trim().slice(0, 60) || text, kind, datetime: kind === "event" ? new Date().toISOString() : null };
+  }
+
+  // ---- preview + commit ----
+  const preview = $("#preview"), previewText = $("#previewText"), phraseEl = $("#phrase");
+  let draft = null;
+  function updatePreview() {
+    const text = phraseEl.value.trim();
+    if (!text) { preview.classList.remove("show"); draft = null; return; }
+    draft = mockParse(text);
+    previewText.textContent = `${draft.kind === "event" ? "📅" : "☑"} ${draft.title}${draft.datetime ? " · " + clock(draft.datetime) : ""}`;
+    preview.classList.add("show");
+  }
+  phraseEl.addEventListener("input", updatePreview);
+  phraseEl.addEventListener("keydown", e => { if (e.key === "Enter") commit(); });
+  $("#previewX").onclick = () => { phraseEl.value = ""; preview.classList.remove("show"); draft = null; };
+  function commit() {
+    const text = phraseEl.value.trim(); if (!text) return;
+    const p = draft || mockParse(text);
+    state.items.push({ id: Date.now(), kind: p.kind, title: p.title, datetime: p.datetime, all_day: false, reminder: p.kind === "event" ? p.datetime : null, status: "pending" });
+    phraseEl.value = ""; preview.classList.remove("show"); draft = null; render();
+  }
+
+  // ---- mic (Web Speech API) ----
+  const mic = $("#mic"), SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    mic.disabled = true; mic.style.opacity = .4; mic.title = "Voice not supported here";
+    $("#hint").textContent = "Voice not supported in this browser — type instead (Enter to add)";
+  } else {
+    const rec = new SR(); rec.interimResults = true; rec.continuous = false;
+    rec.onresult = e => { phraseEl.value = e.results[0][0].transcript; updatePreview(); };
+    rec.onend = () => mic.classList.remove("listening");
+    rec.onerror = () => mic.classList.remove("listening");
+    mic.onclick = () => { if (mic.classList.contains("listening")) { rec.stop(); return; } try { rec.start(); mic.classList.add("listening"); } catch (_) {} };
+  }
+
+  render();
+</script>
+</body>
+</html>

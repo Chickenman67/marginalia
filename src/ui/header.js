@@ -1,0 +1,75 @@
+import { isDemoMode, STORAGE_KEYS } from "../config";
+import { getSpaceToken, setSpaceToken } from "../store";
+import { getSettings, updateSettings, enableNotifications } from "../settings";
+export function mountHeader() {
+    const label = document.getElementById("spaceLabel");
+    const chip = document.getElementById("spaceChip");
+    const copy = document.getElementById("copyToken");
+    label.textContent = getSpaceToken();
+    copy.addEventListener("click", () => {
+        navigator.clipboard?.writeText(getSpaceToken());
+        copy.textContent = "copied";
+        setTimeout(() => (copy.textContent = "copy"), 1200);
+    });
+    // settings modal
+    const back = document.getElementById("settingsModal");
+    const apiKey = document.getElementById("apiKey");
+    const provider = document.getElementById("provider");
+    const setAuto = document.getElementById("setAutoRemind");
+    const setNotify = document.getElementById("setNotify");
+    // populate from saved settings whenever the modal opens
+    const openSettings = () => {
+        const s = getSettings();
+        apiKey.value = localStorage.getItem(STORAGE_KEYS.llmKey) || "";
+        provider.value = localStorage.getItem(STORAGE_KEYS.provider) || "nvidia";
+        setAuto.checked = s.autoRemindEvents;
+        setNotify.checked = s.browserNotifications && typeof Notification !== "undefined" && Notification.permission === "granted";
+        back.classList.add("show");
+    };
+    chip.addEventListener("dblclick", openSettings);
+    document.getElementById("settingsCancel").addEventListener("click", () => back.classList.remove("show"));
+    document.getElementById("settingsSave").addEventListener("click", async () => {
+        localStorage.setItem(STORAGE_KEYS.llmKey, apiKey.value.trim());
+        localStorage.setItem(STORAGE_KEYS.provider, provider.value);
+        updateSettings({ autoRemindEvents: setAuto.checked });
+        if (setNotify.checked) {
+            await enableNotifications();
+        }
+        else {
+            updateSettings({ browserNotifications: false });
+        }
+        back.classList.remove("show");
+    });
+    // space management: single-click chip opens the token modal (copy / new / join)
+    const tokenModal = document.getElementById("tokenModal");
+    const tokenInput = document.getElementById("tokenInput");
+    chip.addEventListener("click", () => {
+        tokenInput.value = getSpaceToken();
+        tokenModal.classList.add("show");
+    });
+    // first-run space modal (only meaningful when not demo + token unknown)
+    if (!isDemoMode && !localStorage.getItem(STORAGE_KEYS.spaceToken)) {
+        tokenModal.classList.add("show");
+    }
+    const go = () => {
+        const v = tokenInput.value.trim();
+        if (v) {
+            setSpaceToken(v);
+            label.textContent = v;
+        }
+        tokenModal.classList.remove("show");
+        if (isDemoMode)
+            location.reload();
+    };
+    document.getElementById("tokenGo").addEventListener("click", go);
+    document.getElementById("tokenNew").addEventListener("click", () => {
+        const fresh = "space-" + crypto.randomUUID().slice(0, 12);
+        setSpaceToken(fresh);
+        label.textContent = fresh;
+        tokenModal.classList.remove("show");
+        location.reload();
+    });
+    // pressing Enter in the token field also joins
+    tokenInput.addEventListener("keydown", (e) => { if (e.key === "Enter")
+        go(); });
+}
