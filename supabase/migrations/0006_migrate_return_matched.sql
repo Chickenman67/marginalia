@@ -1,6 +1,4 @@
-drop function if exists public.migrate_legacy_token(text, text, text);
-
-create function public.migrate_legacy_token(
+create or replace function public.migrate_legacy_token(
   old_token text, new_id text, new_secret text
 ) returns boolean
 language plpgsql as $$
@@ -15,3 +13,8 @@ begin
   return true;
 end;
 $$;
+
+-- Re-assert: function must NOT be callable by PUBLIC (only service_role, used by
+-- the Edge Function). create or replace preserves grants, but re-apply defensively
+-- in case a prior drop/create reset them.
+revoke execute on function public.migrate_legacy_token(text, text, text) from public;
