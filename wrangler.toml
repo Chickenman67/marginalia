@@ -1,0 +1,5 @@
+name = "marginalia"
+compatibility_date = "2026-08-25"
+
+pages_build_command = "npm run build"
+pages_output_directory = "dist"
