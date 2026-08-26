@@ -19,3 +19,14 @@ export interface ParsedItem {
   datetime: string | null;
   reminder: string | null;
 }
+
+export interface DraftItem {
+  title: string;
+  kind: ItemKind;
+  datetime: string | null;
+  reminder: string | null;
+}
+
+export interface PolishResult {
+  items: DraftItem[];
+}
