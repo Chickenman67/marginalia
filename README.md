@@ -29,19 +29,24 @@ VITE_SUPABASE_ANON=...
 
 `npm run build` embeds these at build time.
 
-## Deploy (Cloudflare Worker + Assets)
+## Deploy (Cloudflare Pages, Git-connect)
 
-`wrangler.toml` serves the built `dist/` as a Worker with static assets and
-SPA fallback (`not_found_handling = "single-page-application"`).
-
-1. Build the site: `npm run build` (reads `.env` for `VITE_SUPABASE_*`).
-2. Set the build env vars locally or in the repo's Cloudflare build settings:
+1. Push this repo to GitHub.
+2. Cloudflare Pages → **Create project** → **Connect to Git** → select the repo.
+3. Build settings:
+   - **Framework preset:** Vite (or None)
+   - **Build command:** `npm run build`
+   - **Output directory:** `dist` (created by the build; not in the repo)
+   - **Root directory:** `/` (repo root)
+4. **Environment variables (build only)** — add as plain variables (not Secrets):
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_ANON`
-3. Deploy: `npm run deploy:cf` (= `wrangler deploy`).
-   Requires `CLOUDFLARE_API_TOKEN` (Cloudflare API token with Workers:Edit).
-4. Or connect the Git repo in the Cloudflare dashboard; the Worker build uses
-   `npm run build` and serves `dist/` via the `[assets]` block in `wrangler.toml`.
+   These are embedded into the public bundle by Vite; the anon key is designed
+   to be public and RLS (keyed on space token) protects your data.
+5. Deploy. Deep links and tab views work via `public/_redirects` (SPA fallback).
+
+No `wrangler.toml` is needed for Git-connect — the dashboard build settings
+handle everything.
 
 ## Backend setup (one-time, already done for the live project)
 

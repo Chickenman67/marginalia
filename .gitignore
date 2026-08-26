@@ -3,4 +3,10 @@
 node_modules
 .env
 dist
+supabase/.temp
+opencode.json
+
+# stray TS compile output (build uses tsc --noEmit)
+src/**/*.js
+
 
