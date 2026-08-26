@@ -2,17 +2,47 @@ import { config, isDemoMode, STORAGE_KEYS } from "./config";
 import type { Item, ParsedItem } from "./types";
 import { fetchItems, insertItem, updateItem, removeItem, subscribeToSpace } from "./supabase";
 
-// --- space token (persisted, reused across devices) ---
-export function getSpaceToken(): string {
-  let t = localStorage.getItem(STORAGE_KEYS.spaceToken);
-  if (!t) {
-    t = "space-" + crypto.randomUUID().slice(0, 12);
-    localStorage.setItem(STORAGE_KEYS.spaceToken, t);
-  }
-  return t;
+const TOKEN_BYTES = 16; // 128 bits
+
+export function genTokenPair(): { id: string; secret: string } {
+  return { id: randB64(TOKEN_BYTES), secret: randB64(TOKEN_BYTES) };
 }
-export function setSpaceToken(t: string) {
-  localStorage.setItem(STORAGE_KEYS.spaceToken, t);
+export function combineToken(id: string, secret: string): string {
+  return `${id}.${secret}`;
+}
+export function splitToken(token: string): { id: string; secret: string } {
+  const dot = token.indexOf(".");
+  if (dot === -1) return { id: token, secret: "" };
+  return { id: token.slice(0, dot), secret: token.slice(dot + 1) };
+}
+export function isLegacyToken(token: string): boolean {
+  return token.startsWith("space-");
+}
+function randB64(bytes: number): string {
+  const buf = new Uint8Array(bytes);
+  crypto.getRandomValues(buf);
+  let s = "";
+  for (const b of buf) s += String.fromCharCode(b);
+  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+// --- space token (persisted id.secret; legacy space-xxx triggers migration) ---
+export function getSpaceToken(): string {
+  const t = localStorage.getItem(STORAGE_KEYS.spaceToken);
+  if (t) return t;
+  const { id, secret } = genTokenPair();
+  const combined = combineToken(id, secret);
+  localStorage.setItem(STORAGE_KEYS.spaceToken, combined);
+  return combined;
+}
+export function getSpaceId(): string {
+  return splitToken(getSpaceToken()).id;
+}
+export function getSpaceSecret(): string {
+  return splitToken(getSpaceToken()).secret;
+}
+export function setSpaceToken(id: string, secret: string): void {
+  localStorage.setItem(STORAGE_KEYS.spaceToken, combineToken(id, secret));
 }
 
 // --- in-memory store, seeded from localStorage in demo mode ---
