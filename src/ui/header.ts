@@ -1,5 +1,5 @@
 import { isDemoMode, STORAGE_KEYS } from "../config";
-import { getSpaceToken, setSpaceToken } from "../store";
+import { getSpaceToken, setSpaceToken, splitToken, combineToken, genTokenPair } from "../store";
 import { getSettings, updateSettings, enableNotifications } from "../settings";
 
 export function mountHeader(): void {
@@ -59,14 +59,19 @@ export function mountHeader(): void {
   }
   const go = () => {
     const v = tokenInput.value.trim();
-    if (v) { setSpaceToken(v); label.textContent = v; }
+    if (v) {
+      const { id, secret } = splitToken(v);
+      setSpaceToken(id, secret);
+      label.textContent = v;
+    }
     tokenModal.classList.remove("show");
     if (isDemoMode) location.reload();
   };
   document.getElementById("tokenGo")!.addEventListener("click", go);
   document.getElementById("tokenNew")!.addEventListener("click", () => {
-    const fresh = "space-" + crypto.randomUUID().slice(0, 12);
-    setSpaceToken(fresh);
+    const { id, secret } = genTokenPair();
+    setSpaceToken(id, secret);
+    const fresh = combineToken(id, secret);
     label.textContent = fresh;
     tokenModal.classList.remove("show");
     location.reload();
