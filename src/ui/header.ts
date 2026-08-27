@@ -65,7 +65,9 @@ export function mountHeader(): void {
       label.textContent = v;
     }
     tokenModal.classList.remove("show");
-    if (isDemoMode) location.reload();
+    // Always reload: the Supabase client caches the x-space-token header at
+    // creation, so a changed token requires a fresh client to take effect.
+    location.reload();
   };
   document.getElementById("tokenGo")!.addEventListener("click", go);
   document.getElementById("tokenNew")!.addEventListener("click", () => {

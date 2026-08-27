@@ -73,8 +73,8 @@ export function mountInput(): void {
 
   if (speech.supported) {
     dictateSpeech.onResult = (text) => {
-      const para = el<HTMLTextAreaElement>("#para");
-      para.value = (para.value ? para.value + " " : "") + text;
+      // speech.ts already sends the full accumulated transcript on every event.
+      el<HTMLTextAreaElement>("#para").value = text;
     };
     dictateSpeech.onState = (l) => paraMic.classList.toggle("listening", l);
     paraMic.onclick = () => (paraMic.classList.contains("listening") ? dictateSpeech.stop() : dictateSpeech.start());
