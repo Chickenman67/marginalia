@@ -56,7 +56,12 @@ export function mountHeader(): void {
   const openSettings = () => {
     const s = getSettings();
     apiKey.value = localStorage.getItem(STORAGE_KEYS.llmKey) || "";
-    provider.value = localStorage.getItem(STORAGE_KEYS.provider) || "nvidia";
+    // NVIDIA is only a valid choice when no key is supplied (the shared proxy).
+    // With a key, the app uses your key on Gemini/Groq — so hide NVIDIA to avoid confusion.
+    const hasKey = !!apiKey.value.trim();
+    Array.from(provider.options).forEach((o) => { o.hidden = hasKey && o.value === "nvidia"; });
+    provider.value = hasKey ? (localStorage.getItem(STORAGE_KEYS.provider) || "gemini") : (localStorage.getItem(STORAGE_KEYS.provider) || "nvidia");
+    if (hasKey && provider.value === "nvidia") provider.value = "gemini";
     setAuto.checked = s.autoRemindEvents;
     setNotify.checked = s.browserNotifications && typeof Notification !== "undefined" && Notification.permission === "granted";
     keyStatus.textContent = "";

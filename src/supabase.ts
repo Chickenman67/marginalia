@@ -97,7 +97,7 @@ async function parseDirect(phrase: string, provider: string, key: string): Promi
   // Gemini: key-in-URL, responseSchema. Groq: OpenAI-compat, json_object.
   const sys = "Convert a scheduling phrase into JSON {title, datetime (ISO8601 or null), type ('todo'|'event'), reminder (ISO8601 or null)}. datetime present => event.";
   if (provider === "gemini") {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${key}`;
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -122,6 +122,9 @@ async function parseDirect(phrase: string, provider: string, key: string): Promi
     body: JSON.stringify({ model: "llama-3.3-70b-versatile", messages: [{ role: "system", content: sys }, { role: "user", content: phrase }], response_format: { type: "json_object" } })
   });
   const j = await res.json();
+  if (!res.ok || !j.choices?.[0]?.message?.content) {
+    throw new Error(`groq error: ${j.error?.message || res.status}`);
+  }
   return normalize(JSON.parse(j.choices[0].message.content));
 }
 
@@ -180,10 +183,11 @@ export async function migrateLegacyToken(oldToken: string): Promise<{ id: string
 // Returns { ok, message }. Surfaces the real provider error (bad key, quota…).
 export async function testProviderKey(provider: string, key: string): Promise<{ ok: boolean; message: string }> {
   if (!key.trim()) return { ok: false, message: "No key entered." };
+  // "nvidia" with a key is treated as a Gemini key (the proxy default uses no key).
   const p = provider === "nvidia" ? "gemini" : provider;
   try {
     const res = p === "gemini"
-      ? await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, {
+      ? await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${key}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "reply with the single word ok" }] }] })
@@ -193,8 +197,9 @@ export async function testProviderKey(provider: string, key: string): Promise<{ 
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
           body: JSON.stringify({ model: "llama-3.3-70b-versatile", messages: [{ role: "user", content: "reply with the single word ok" }] })
         });
+    const j = await res.json().catch(() => ({}));
     if (!res.ok) {
-      return { ok: false, message: `Rejected (${res.status}). Check the key.` };
+      return { ok: false, message: p === "gemini" ? `Gemini: ${j.error?.message || res.status}` : `Groq: ${j.error?.message || res.status}` };
     }
     return { ok: true, message: `${p} key works.` };
   } catch (e) {
@@ -206,7 +211,7 @@ async function polishDirect(paragraph: string, provider: string, key: string): P
   const sys = "Organize a rambling paragraph into a JSON object {items:[{title, kind('event'|'todo'), datetime(ISO8601 or null), reminder(ISO8601 or null)}]}. If a line has a time it is an event, otherwise a todo. Resolve relative times (today/tomorrow/next week) to the actual date in the current year. Cap at 100 items.";
   let parsed: any;
   if (provider === "gemini") {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${key}`;
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -241,6 +246,9 @@ async function polishDirect(paragraph: string, provider: string, key: string): P
       body: JSON.stringify({ model: "llama-3.3-70b-versatile", messages: [{ role: "system", content: sys }, { role: "user", content: paragraph }], response_format: { type: "json_object" } })
     });
     const j = await res.json();
+    if (!res.ok || !j.choices?.[0]?.message?.content) {
+      throw new Error(`groq error: ${j.error?.message || res.status}`);
+    }
     parsed = JSON.parse(j.choices[0].message.content);
   }
   const items: DraftItem[] = (Array.isArray(parsed.items) ? parsed.items : []).slice(0, 100).map(normalizeDraft);

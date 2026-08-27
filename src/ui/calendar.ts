@@ -76,27 +76,42 @@ export function openTimePicker(trigger: HTMLElement, initial: string, onPicked: 
   const pop = document.createElement("div");
   let h = 9, m = 0;
   if (/^\d{2}:\d{2}$/.test(initial)) { h = Number(initial.slice(0, 2)); m = Number(initial.slice(3, 5)); }
+  const readout = () => { pop.querySelector<HTMLElement>(".time-read")!.textContent = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`; };
   const render = () => {
     pop.innerHTML = `
       <div class="pop-head"><span class="pop-title">Time</span></div>
       <div class="time-wrap">
-        <div class="time-col" id="tcHour"></div>
-        <div class="time-col" id="tcMin"></div>
+        <div class="wheel" id="tcHour"></div>
+        <span class="wheel-sep">:</span>
+        <div class="wheel" id="tcMin"></div>
       </div>
       <div class="time-foot">
         <span class="time-read">${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}</span>
         <button type="button" class="btn primary" id="tcOk">Set</button>
       </div>`;
-    const hours = Array.from({ length: 24 }, (_, i) => i);
-    const mins = [0, 15, 30, 45];
-    const fill = (host: HTMLElement, vals: number[], cur: number) => {
-      host.innerHTML = vals.map((v) => `<button type="button" class="time-opt ${v === cur ? "sel" : ""}" data-v="${v}">${String(v).padStart(2, "0")}</button>`).join("");
-      host.querySelectorAll<HTMLButtonElement>(".time-opt").forEach((b) =>
-        (b.onclick = (e) => { e.stopPropagation(); if (host.id === "tcHour") h = Number(b.dataset.v); else m = Number(b.dataset.v); render(); })
-      );
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const buildWheel = (host: HTMLElement, count: number, cur: number, onPick: (v: number) => void) => {
+      const padN = 3;
+      let html = "";
+      for (let i = 0; i < padN; i++) html += `<div class="wheel-pad"></div>`;
+      for (let v = 0; v < count; v++) html += `<button type="button" class="wheel-item" data-v="${v}">${pad(v)}</button>`;
+      for (let i = 0; i < padN; i++) html += `<div class="wheel-pad"></div>`;
+      host.innerHTML = html;
+      const rowH = () => host.querySelector<HTMLElement>(".wheel-item")!.offsetHeight;
+      requestAnimationFrame(() => { host.scrollTop = (cur + padN) * rowH(); });
+      host.addEventListener("scroll", () => {
+        const idx = Math.round(host.scrollTop / rowH()) - padN;
+        const v = Math.max(0, Math.min(count - 1, idx));
+        onPick(v);
+        host.querySelectorAll<HTMLElement>(".wheel-item").forEach((b) =>
+          b.classList.toggle("sel", Number(b.dataset.v) === v));
+        readout();
+      }, { passive: true });
+      host.querySelectorAll<HTMLButtonElement>(".wheel-item").forEach((b) =>
+        (b.onclick = (e) => { e.stopPropagation(); const v = Number(b.dataset.v); onPick(v); host.scrollTop = (v + padN) * rowH(); }));
     };
-    fill(pop.querySelector<HTMLElement>("#tcHour")!, hours, h);
-    fill(pop.querySelector<HTMLElement>("#tcMin")!, mins, m);
+    buildWheel(pop.querySelector<HTMLElement>("#tcHour")!, 24, h, (v) => { h = v; });
+    buildWheel(pop.querySelector<HTMLElement>("#tcMin")!, 60, m, (v) => { m = v; });
     pop.querySelector<HTMLButtonElement>("#tcOk")!.onclick = (e) => {
       e.stopPropagation();
       onPicked(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
