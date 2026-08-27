@@ -68,29 +68,28 @@ export async function subscribeToSpace(token: string, onUpdate: (items: Item[]) 
     .subscribe();
 }
 
-// --- LLM parsing via proxy (default) or direct provider (fallback key) ---
+// --- LLM parsing via proxy (NVIDIA default) or direct provider (user key) ---
 export async function parsePhrase(phrase: string): Promise<ParsedItem> {
   const userKey = localStorage.getItem(STORAGE_KEYS.llmKey);
   const provider = localStorage.getItem(STORAGE_KEYS.provider) || "nvidia";
 
-  // A saved key takes priority over the (slow/unreliable) shared NVIDIA proxy,
-  // regardless of the dropdown default — the user explicitly wants their key used.
-  if (userKey) {
-    return parseDirect(phrase, provider === "nvidia" ? "gemini" : provider, userKey);
+  // "nvidia" = use the free shared proxy (no key). Any other provider uses the saved key.
+  if (provider === "nvidia" || !userKey) {
+    // default: NVIDIA via Supabase Edge Function proxy
+    const res = await fetch(config.parseFunction, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${config.supabaseAnon}`,
+        "x-space-token": getSpaceToken()
+      },
+      body: JSON.stringify({ phrase })
+    });
+    if (!res.ok) throw new Error(`parse failed: ${res.status}`);
+    const json = await res.json();
+    return normalize(json);
   }
-  // default: NVIDIA via Supabase Edge Function proxy
-  const res = await fetch(config.parseFunction, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${config.supabaseAnon}`,
-      "x-space-token": getSpaceToken()
-    },
-    body: JSON.stringify({ phrase })
-  });
-  if (!res.ok) throw new Error(`parse failed: ${res.status}`);
-  const json = await res.json();
-  return normalize(json);
+  return parseDirect(phrase, provider, userKey);
 }
 
 async function parseDirect(phrase: string, provider: string, key: string): Promise<ParsedItem> {
@@ -119,7 +118,7 @@ async function parseDirect(phrase: string, provider: string, key: string): Promi
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-    body: JSON.stringify({ model: "llama-3.3-70b-versatile", messages: [{ role: "system", content: sys }, { role: "user", content: phrase }], response_format: { type: "json_object" } })
+    body: JSON.stringify({ model: "llama-3.1-8b-instant", messages: [{ role: "system", content: sys }, { role: "user", content: phrase }], response_format: { type: "json_object" } })
   });
   const j = await res.json();
   if (!res.ok || !j.choices?.[0]?.message?.content) {
@@ -154,16 +153,16 @@ function normalizeDraft(j: any): DraftItem {
 export async function polishPhrase(paragraph: string): Promise<PolishResult> {
   const userKey = localStorage.getItem(STORAGE_KEYS.llmKey);
   const provider = localStorage.getItem(STORAGE_KEYS.provider) || "nvidia";
-  if (userKey) {
-    return polishDirect(paragraph, provider === "nvidia" ? "gemini" : provider, userKey);
+  if (provider === "nvidia" || !userKey) {
+    const res = await fetch(config.parseFunction.replace(/\/parse$/, "/polish"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.supabaseAnon}`, "x-space-token": getSpaceToken() },
+      body: JSON.stringify({ paragraph })
+    });
+    if (!res.ok) throw new Error(`polish failed: ${res.status}`);
+    return (await res.json()) as PolishResult;
   }
-  const res = await fetch(config.parseFunction.replace(/\/parse$/, "/polish"), {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.supabaseAnon}`, "x-space-token": getSpaceToken() },
-    body: JSON.stringify({ paragraph })
-  });
-  if (!res.ok) throw new Error(`polish failed: ${res.status}`);
-  return (await res.json()) as PolishResult;
+  return polishDirect(paragraph, provider, userKey);
 }
 
 export async function migrateLegacyToken(oldToken: string): Promise<{ id: string; secret: string }> {
@@ -179,14 +178,26 @@ export async function migrateLegacyToken(oldToken: string): Promise<{ id: string
   return { id, secret };
 }
 
-// Verify a user-supplied provider key with a tiny test request.
+// Verify a provider key with a tiny test request (NVIDIA = no key, tests the proxy).
 // Returns { ok, message }. Surfaces the real provider error (bad key, quota…).
 export async function testProviderKey(provider: string, key: string): Promise<{ ok: boolean; message: string }> {
+  if (provider === "nvidia") {
+    try {
+      const res = await fetch(config.parseFunction, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.supabaseAnon}`, "x-space-token": getSpaceToken() },
+        body: JSON.stringify({ phrase: "test" })
+      });
+      return res.ok
+        ? { ok: true, message: "NVIDIA proxy works (no key needed)." }
+        : { ok: false, message: `Proxy error (${res.status}).` };
+    } catch (e) {
+      return { ok: false, message: `Network error: ${e instanceof Error ? e.message : "unknown"}` };
+    }
+  }
   if (!key.trim()) return { ok: false, message: "No key entered." };
-  // "nvidia" with a key is treated as a Gemini key (the proxy default uses no key).
-  const p = provider === "nvidia" ? "gemini" : provider;
   try {
-    const res = p === "gemini"
+    const res = provider === "gemini"
       ? await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${key}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -195,13 +206,13 @@ export async function testProviderKey(provider: string, key: string): Promise<{ 
       : await fetch("https://api.groq.com/openai/v1/chat/completions", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-          body: JSON.stringify({ model: "llama-3.3-70b-versatile", messages: [{ role: "user", content: "reply with the single word ok" }] })
+          body: JSON.stringify({ model: "llama-3.1-8b-instant", messages: [{ role: "user", content: "reply with the single word ok" }] })
         });
     const j = await res.json().catch(() => ({}));
     if (!res.ok) {
-      return { ok: false, message: p === "gemini" ? `Gemini: ${j.error?.message || res.status}` : `Groq: ${j.error?.message || res.status}` };
+      return { ok: false, message: provider === "gemini" ? `Gemini: ${j.error?.message || res.status}` : `Groq: ${j.error?.message || res.status}` };
     }
-    return { ok: true, message: `${p} key works.` };
+    return { ok: true, message: `${provider} key works.` };
   } catch (e) {
     return { ok: false, message: `Network error: ${e instanceof Error ? e.message : "unknown"}` };
   }
@@ -239,11 +250,11 @@ async function polishDirect(paragraph: string, provider: string, key: string): P
       throw new Error(`gemini error: ${j.error?.message || res.status}`);
     }
     parsed = JSON.parse(j.candidates[0].content.parts[0].text);
-  } else {
+    } else {
     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ model: "llama-3.3-70b-versatile", messages: [{ role: "system", content: sys }, { role: "user", content: paragraph }], response_format: { type: "json_object" } })
+      body: JSON.stringify({ model: "llama-3.1-8b-instant", messages: [{ role: "system", content: sys }, { role: "user", content: paragraph }], response_format: { type: "json_object" } })
     });
     const j = await res.json();
     if (!res.ok || !j.choices?.[0]?.message?.content) {
