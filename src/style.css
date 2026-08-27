@@ -123,6 +123,11 @@ main { flex: 1; padding: 18px 22px 150px; }
 .hint { color: var(--faint); font-size: 11.5px; text-align: center; margin-top: 9px; }
 .kbd { font-size: 11px; color: var(--faint); }
 
+.manual-event { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px 14px; margin-bottom: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; }
+.manual-event input[type="text"], .manual-event input:not([type]), .manual-event #evTitle { flex: 1 1 180px; min-width: 0; background: var(--bg); border: 1px solid var(--line-strong); color: var(--ink); padding: 10px 12px; border-radius: 10px; font-size: 15px; font-family: inherit; }
+.manual-event input[type="date"], .manual-event input[type="time"] { background: var(--bg); border: 1px solid var(--line-strong); color: var(--ink); padding: 9px 10px; border-radius: 10px; font-size: 14px; font-family: inherit; color-scheme: light dark; }
+.manual-event .allday { font-size: 13px; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+
 .back { position: fixed; inset: 0; background: rgba(35,32,27,.42); display: none; align-items: center; justify-content: center; z-index: 20; padding: 20px; }
 .back.show { display: flex; animation: rise .18s ease; }
 .modal { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 24px; width: 100%; max-width: 380px; box-shadow: 0 20px 60px rgba(35,32,27,.25); }

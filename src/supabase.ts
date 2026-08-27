@@ -95,7 +95,7 @@ async function parseDirect(phrase: string, provider: string, key: string): Promi
   // Gemini: key-in-URL, responseSchema. Groq: OpenAI-compat, json_object.
   const sys = "Convert a scheduling phrase into JSON {title, datetime (ISO8601 or null), type ('todo'|'event'), reminder (ISO8601 or null)}. datetime present => event.";
   if (provider === "gemini") {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -108,6 +108,9 @@ async function parseDirect(phrase: string, provider: string, key: string): Promi
       })
     });
     const j = await res.json();
+    if (!res.ok || !j.candidates?.[0]?.content?.parts?.[0]?.text) {
+      throw new Error(`gemini error: ${j.error?.message || res.status}`);
+    }
     return normalize(JSON.parse(j.candidates[0].content.parts[0].text));
   }
   // groq / mistral (openai-compat)
@@ -175,7 +178,7 @@ async function polishDirect(paragraph: string, provider: string, key: string): P
   const sys = "Organize a rambling paragraph into a JSON object {items:[{title, kind('event'|'todo'), datetime(ISO8601 or null), reminder(ISO8601 or null)}]}. If a line has a time it is an event, otherwise a todo. Resolve relative times (today/tomorrow/next week) to the actual date in the current year. Cap at 100 items.";
   let parsed: any;
   if (provider === "gemini") {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -199,6 +202,9 @@ async function polishDirect(paragraph: string, provider: string, key: string): P
       })
     });
     const j = await res.json();
+    if (!res.ok || !j.candidates?.[0]?.content?.parts?.[0]?.text) {
+      throw new Error(`gemini error: ${j.error?.message || res.status}`);
+    }
     parsed = JSON.parse(j.candidates[0].content.parts[0].text);
   } else {
     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {

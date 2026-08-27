@@ -58,9 +58,9 @@ export function mountInput(): void {
     let parsed: ParsedItem;
     try {
       parsed = await parsePhrase(text);
-    } catch {
+    } catch (err) {
       parsed = { title: text, kind: "todo", datetime: null, reminder: null };
-      showNotice("AI unavailable — added as a plain note. Edit if needed.");
+      showNotice(`AI unavailable — added as a plain note. (${err instanceof Error ? err.message : "error"})`);
     }
     await addItem(parsed, getSpaceToken());
     phraseEl.value = "";
@@ -99,8 +99,8 @@ export function mountInput(): void {
     let result: PolishResult;
     try {
       result = await polishPhrase(para);
-    } catch {
-      showNotice("AI unavailable — could not organize.");
+    } catch (err) {
+      showNotice(`AI unavailable — ${err instanceof Error ? err.message : "could not organize"}`);
       return;
     }
     renderDraft(result.items);
@@ -201,6 +201,7 @@ export function mountViews(): void {
   const vSched = el<HTMLDivElement>("#view-schedule");
   const vTodo = el<HTMLDivElement>("#view-todos");
   const vDue = el<HTMLDivElement>("#view-due");
+  const schedList = el<HTMLDivElement>("#scheduleList");
   const cSched = el<HTMLSpanElement>("#cSched");
   const cTodo = el<HTMLSpanElement>("#cTodo");
   const cDue = el<HTMLSpanElement>("#cDue");
@@ -224,16 +225,32 @@ export function mountViews(): void {
     cTodo.textContent = String(todos.filter((i) => i.status !== "done").length || "");
     cDue.textContent = String(due.length || "");
 
-    vSched.innerHTML = events.length ? groupByDay(events) : `<div class="empty">Nothing scheduled. Speak or type to add one.</div>`;
+    schedList.innerHTML = events.length ? groupByDay(events) : `<div class="empty">Nothing scheduled. Speak or type to add one.</div>`;
     vTodo.innerHTML = todos.length ? todos.map(cardHTML).join("") : `<div class="empty">No todos. Add one below.</div>`;
     vDue.innerHTML = due.length ? due.map(cardHTML).join("") : `<div class="empty">Nothing due right now.</div>`;
 
-    bindCardEvents(vSched);
+    bindCardEvents(schedList);
     bindCardEvents(vTodo);
     bindCardEvents(vDue);
   });
 
+  // --- Manual Schedule entry with a date + optional time picker ---
+  const form = el<HTMLFormElement>("#addEvent");
+  const dateInp = el<HTMLInputElement>("#evDate");
+  const timeInp = el<HTMLInputElement>("#evTime");
+  const allDayInp = el<HTMLInputElement>("#evAllDay");
+  dateInp.value = new Date().toISOString().slice(0, 10);
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const title = el<HTMLInputElement>("#evTitle").value.trim();
+    if (!title || !dateInp.value) return;
+    const allDay = allDayInp.checked;
+    const when = allDay
+      ? `${dateInp.value}T00:00:00`
+      : `${dateInp.value}T${timeInp.value || "09:00"}:00`;
+    await addItem({ title, kind: "event", datetime: new Date(when).toISOString(), reminder: new Date(when).toISOString() }, getSpaceId());
+    el<HTMLInputElement>("#evTitle").value = "";
+  });
+
   void isDemoMode;
 }
-
-void addItem;

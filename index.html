@@ -28,7 +28,16 @@
     </div>
 
     <main>
-      <div id="view-schedule"></div>
+      <div id="view-schedule">
+        <form class="manual-event" id="addEvent">
+          <input id="evTitle" placeholder="Add to schedule — e.g. Dentist" aria-label="Event title" />
+          <input id="evDate" type="date" aria-label="Date" required />
+          <input id="evTime" type="time" aria-label="Time" />
+          <label class="allday"><input type="checkbox" id="evAllDay" /> All day</label>
+          <button class="btn primary" type="submit">Add</button>
+        </form>
+        <div id="scheduleList"></div>
+      </div>
       <div id="view-todos" hidden></div>
       <div id="view-due" hidden></div>
     </main>
