@@ -3,6 +3,7 @@ import { addItem, getSpaceId, getSpaceToken, subscribe } from "../store";
 import { parsePhrase, polishPhrase } from "../supabase";
 import { createSpeech } from "../speech";
 import { cardHTML, bindCardEvents, groupByDay, esc } from "./views";
+import { openCalendar, openTimePicker } from "./calendar";
 import { dueItems } from "../reminders";
 import type { Item, ParsedItem, DraftItem, PolishResult } from "../types";
 
@@ -234,20 +235,33 @@ export function mountViews(): void {
     bindCardEvents(vDue);
   });
 
-  // --- Manual Schedule entry with a date + optional time picker ---
+  // --- Manual Schedule entry with a calendar popover + time picker ---
   const form = el<HTMLFormElement>("#addEvent");
-  const dateInp = el<HTMLInputElement>("#evDate");
-  const timeInp = el<HTMLInputElement>("#evTime");
+  const dateTrigger = el<HTMLButtonElement>("#evDate");
+  const timeTrigger = el<HTMLButtonElement>("#evTimeTrigger");
   const allDayInp = el<HTMLInputElement>("#evAllDay");
-  dateInp.value = new Date().toISOString().slice(0, 10);
+  let pickedDate = new Date().toISOString().slice(0, 10);
+  let pickedTime = "";
+  const fmtDate = (iso: string) => new Date(iso + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  dateTrigger.textContent = fmtDate(pickedDate);
+  dateTrigger.onclick = () => openCalendar(dateTrigger, pickedDate, (iso) => {
+    pickedDate = iso;
+    dateTrigger.textContent = fmtDate(iso);
+  });
+  const syncTimeTrigger = () => { timeTrigger.textContent = allDayInp.checked ? "All day" : (pickedTime || "Time"); };
+  timeTrigger.onclick = () => {
+    if (allDayInp.checked) return;
+    openTimePicker(timeTrigger, pickedTime || "09:00", (t) => { pickedTime = t; syncTimeTrigger(); });
+  };
+  allDayInp.onchange = syncTimeTrigger;
+  syncTimeTrigger();
+
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const title = el<HTMLInputElement>("#evTitle").value.trim();
-    if (!title || !dateInp.value) return;
+    if (!title) return;
     const allDay = allDayInp.checked;
-    const when = allDay
-      ? `${dateInp.value}T00:00:00`
-      : `${dateInp.value}T${timeInp.value || "09:00"}:00`;
+    const when = allDay ? `${pickedDate}T00:00:00` : `${pickedDate}T${pickedTime || "09:00"}:00`;
     await addItem({ title, kind: "event", datetime: new Date(when).toISOString(), reminder: new Date(when).toISOString() }, getSpaceId());
     el<HTMLInputElement>("#evTitle").value = "";
   });

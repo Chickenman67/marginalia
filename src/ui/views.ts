@@ -1,5 +1,6 @@
 import type { Item } from "../types";
 import { toggleDone, deleteItem } from "../store";
+import { colorFor } from "../settings";
 
 export function dayKey(dt: string): string {
   const d = new Date(dt);
@@ -24,7 +25,9 @@ export function cardHTML(i: Item): string {
   const isPast = i.kind === "event" && !!i.datetime && new Date(i.datetime) < new Date() && i.status !== "done";
   const time = i.kind === "event" && i.datetime ? (i.all_day ? "" : clock(i.datetime)) : "";
   const remind = i.reminder ? `<span class="remind">🔔 ${clock(i.reminder)}</span>` : "";
-  return `<div class="card ${i.status === "done" ? "done" : ""} ${isPast ? "past" : ""}" data-id="${i.id}">
+  const accent = colorFor(i.datetime || i.reminder);
+  const accentStyle = accent ? ` style="border-left:4px solid ${accent}"` : "";
+  return `<div class="card ${i.status === "done" ? "done" : ""} ${isPast ? "past" : ""}" data-id="${i.id}"${accentStyle}>
     <input type="checkbox" class="check" ${i.status === "done" ? "checked" : ""} aria-label="Complete ${esc(i.title)}" />
     <div class="body">
       <div class="title">${esc(i.title)}</div>

@@ -73,8 +73,10 @@ export async function parsePhrase(phrase: string): Promise<ParsedItem> {
   const userKey = localStorage.getItem(STORAGE_KEYS.llmKey);
   const provider = localStorage.getItem(STORAGE_KEYS.provider) || "nvidia";
 
-  if (userKey && provider !== "nvidia") {
-    return parseDirect(phrase, provider, userKey);
+  // A saved key takes priority over the (slow/unreliable) shared NVIDIA proxy,
+  // regardless of the dropdown default — the user explicitly wants their key used.
+  if (userKey) {
+    return parseDirect(phrase, provider === "nvidia" ? "gemini" : provider, userKey);
   }
   // default: NVIDIA via Supabase Edge Function proxy
   const res = await fetch(config.parseFunction, {
@@ -149,8 +151,8 @@ function normalizeDraft(j: any): DraftItem {
 export async function polishPhrase(paragraph: string): Promise<PolishResult> {
   const userKey = localStorage.getItem(STORAGE_KEYS.llmKey);
   const provider = localStorage.getItem(STORAGE_KEYS.provider) || "nvidia";
-  if (userKey && provider !== "nvidia") {
-    return polishDirect(paragraph, provider, userKey);
+  if (userKey) {
+    return polishDirect(paragraph, provider === "nvidia" ? "gemini" : provider, userKey);
   }
   const res = await fetch(config.parseFunction.replace(/\/parse$/, "/polish"), {
     method: "POST",
@@ -172,6 +174,32 @@ export async function migrateLegacyToken(oldToken: string): Promise<{ id: string
   const j = await res.json();
   if (!j.ok) throw new Error("migrate rejected");
   return { id, secret };
+}
+
+// Verify a user-supplied provider key with a tiny test request.
+// Returns { ok, message }. Surfaces the real provider error (bad key, quota…).
+export async function testProviderKey(provider: string, key: string): Promise<{ ok: boolean; message: string }> {
+  if (!key.trim()) return { ok: false, message: "No key entered." };
+  const p = provider === "nvidia" ? "gemini" : provider;
+  try {
+    const res = p === "gemini"
+      ? await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "reply with the single word ok" }] }] })
+        })
+      : await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+          body: JSON.stringify({ model: "llama-3.3-70b-versatile", messages: [{ role: "user", content: "reply with the single word ok" }] })
+        });
+    if (!res.ok) {
+      return { ok: false, message: `Rejected (${res.status}). Check the key.` };
+    }
+    return { ok: true, message: `${p} key works.` };
+  } catch (e) {
+    return { ok: false, message: `Network error: ${e instanceof Error ? e.message : "unknown"}` };
+  }
 }
 
 async function polishDirect(paragraph: string, provider: string, key: string): Promise<PolishResult> {

@@ -1,6 +1,8 @@
 import { isDemoMode, STORAGE_KEYS } from "../config";
 import { getSpaceToken, setSpaceToken, splitToken, combineToken, genTokenPair } from "../store";
-import { getSettings, updateSettings, enableNotifications } from "../settings";
+import { getSettings, updateSettings, enableNotifications, type ColorRule } from "../settings";
+import { testProviderKey } from "../supabase";
+import { esc } from "./views";
 
 export function mountHeader(): void {
   const label = document.getElementById("spaceLabel")!;
@@ -20,6 +22,35 @@ export function mountHeader(): void {
   const provider = document.getElementById("provider") as HTMLSelectElement;
   const setAuto = document.getElementById("setAutoRemind") as HTMLInputElement;
   const setNotify = document.getElementById("setNotify") as HTMLInputElement;
+  const keyStatus = document.getElementById("keyStatus") as HTMLSpanElement;
+  const rulesHost = document.getElementById("colorRules") as HTMLDivElement;
+
+  function renderRules(rules: ColorRule[]) {
+    rulesHost.innerHTML = rules.map((r, idx) => `
+      <div class="rule" data-idx="${idx}">
+        <input type="color" class="rule-color" value="${r.color}" aria-label="Color" />
+        <input class="rule-label" value="${esc(r.label)}" aria-label="Label" />
+        <span class="rule-within">within</span>
+        <input type="number" class="rule-hours" min="1" value="${r.withinHours}" aria-label="Hours" />
+        <span class="rule-hours-unit">hrs</span>
+        <button type="button" class="rule-del" title="Remove">✕</button>
+      </div>`).join("");
+    rulesHost.querySelectorAll<HTMLButtonElement>(".rule-del").forEach((b) => {
+      b.onclick = () => {
+        const i = +b.closest(".rule")!.getAttribute("data-idx")!;
+        const next = rules.slice();
+        next.splice(i, 1);
+        renderRules(next);
+      };
+    });
+  }
+  const readRules = (): ColorRule[] =>
+    Array.from(rulesHost.querySelectorAll<HTMLElement>(".rule")).map((row) => ({
+      id: `r-${crypto.randomUUID().slice(0, 8)}`,
+      label: (row.querySelector(".rule-label") as HTMLInputElement).value.trim() || "Untitled",
+      color: (row.querySelector(".rule-color") as HTMLInputElement).value,
+      withinHours: Math.max(1, Number((row.querySelector(".rule-hours") as HTMLInputElement).value) || 24)
+    }));
 
   // populate from saved settings whenever the modal opens
   const openSettings = () => {
@@ -28,6 +59,9 @@ export function mountHeader(): void {
     provider.value = localStorage.getItem(STORAGE_KEYS.provider) || "nvidia";
     setAuto.checked = s.autoRemindEvents;
     setNotify.checked = s.browserNotifications && typeof Notification !== "undefined" && Notification.permission === "granted";
+    keyStatus.textContent = "";
+    keyStatus.className = "key-status";
+    renderRules(s.colorRules);
     back.classList.add("show");
   };
   chip.addEventListener("dblclick", openSettings);
@@ -37,13 +71,35 @@ export function mountHeader(): void {
   document.getElementById("settingsSave")!.addEventListener("click", async () => {
     localStorage.setItem(STORAGE_KEYS.llmKey, apiKey.value.trim());
     localStorage.setItem(STORAGE_KEYS.provider, provider.value);
-    updateSettings({ autoRemindEvents: setAuto.checked });
+    updateSettings({ autoRemindEvents: setAuto.checked, colorRules: readRules() });
     if (setNotify.checked) {
       await enableNotifications();
     } else {
       updateSettings({ browserNotifications: false });
     }
     back.classList.remove("show");
+  });
+
+  document.getElementById("addRule")!.addEventListener("click", () => {
+    const cur = Array.from(rulesHost.querySelectorAll<HTMLElement>(".rule")).map((row) => ({
+      id: `r-${crypto.randomUUID().slice(0, 8)}`,
+      label: (row.querySelector(".rule-label") as HTMLInputElement).value,
+      color: (row.querySelector(".rule-color") as HTMLInputElement).value,
+      withinHours: Number((row.querySelector(".rule-hours") as HTMLInputElement).value) || 24
+    }));
+    cur.push({ id: `r-${crypto.randomUUID().slice(0, 8)}`, label: "New rule", color: "#3f7d6e", withinHours: 72 });
+    renderRules(cur);
+  });
+
+  const testBtn = document.getElementById("keyTest")!;
+  testBtn.addEventListener("click", async () => {
+    const key = apiKey.value.trim();
+    if (!key) { keyStatus.textContent = "Enter a key first."; keyStatus.className = "key-status bad"; return; }
+    keyStatus.textContent = "Testing…";
+    keyStatus.className = "key-status";
+    const r = await testProviderKey(provider.value, key);
+    keyStatus.textContent = r.message;
+    keyStatus.className = `key-status ${r.ok ? "good" : "bad"}`;
   });
 
   // space management: single-click chip opens the token modal (copy / new / join)
