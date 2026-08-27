@@ -14,10 +14,11 @@
     <header>
       <h1>Marginalia</h1>
       <span class="tag">your quiet planner</span>
-      <span class="space-chip" id="spaceChip">
-        <span class="dot"></span><span id="spaceLabel">demo</span>
-        <button id="copyToken" title="Copy space token">copy</button>
-      </span>
+        <span class="space-chip" id="spaceChip">
+          <span class="dot"></span><span id="spaceLabel">demo</span>
+          <button id="copyToken" title="Copy space token">copy</button>
+          <button id="settingsBtn" class="icon" title="Settings (API key, reminders)">⚙</button>
+        </span>
     </header>
 
     <div class="tabs" role="tablist">
@@ -43,6 +44,7 @@
           <div class="bar">
             <button class="mic" id="mic" title="Speak" aria-label="Speak">🎙</button>
             <input id="phrase" placeholder="Speak or type — “dentist Tuesday 3pm”, “call mom after lunch”" aria-label="New item" />
+            <button class="btn primary" id="quickAdd">Add</button>
           </div>
         </div>
 

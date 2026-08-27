@@ -31,6 +31,7 @@ export function mountHeader(): void {
     back.classList.add("show");
   };
   chip.addEventListener("dblclick", openSettings);
+  document.getElementById("settingsBtn")!.addEventListener("click", openSettings);
 
   document.getElementById("settingsCancel")!.addEventListener("click", () => back.classList.remove("show"));
   document.getElementById("settingsSave")!.addEventListener("click", async () => {

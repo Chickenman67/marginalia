@@ -43,11 +43,18 @@ export function mountInput(): void {
   }
   phraseEl.addEventListener("input", updatePreview);
   phraseEl.addEventListener("keydown", (e) => { if (e.key === "Enter") commit(); });
+  el<HTMLButtonElement>("#quickAdd").onclick = commit;
   el<HTMLSpanElement>("#previewX").onclick = () => { phraseEl.value = ""; preview.classList.remove("show"); draft = null; };
 
   async function commit() {
     const text = phraseEl.value.trim();
     if (!text) return;
+    const addBtn = el<HTMLButtonElement>("#quickAdd");
+    const mic = el<HTMLButtonElement>("#mic");
+    addBtn.disabled = true;
+    mic.disabled = true;
+    phraseEl.disabled = true;
+    addBtn.textContent = "…";
     let parsed: ParsedItem;
     try {
       parsed = await parsePhrase(text);
@@ -59,6 +66,10 @@ export function mountInput(): void {
     phraseEl.value = "";
     preview.classList.remove("show");
     draft = null;
+    addBtn.disabled = false;
+    mic.disabled = !speech.supported;
+    phraseEl.disabled = false;
+    addBtn.textContent = "Add";
   }
 
   // --- Dictate mode ---
