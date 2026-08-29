@@ -37,4 +37,4 @@ Cross-device consistency via a dedicated free backend (Supabase), data partition
 
 ## Export / Import
 
-Per-space JSON backup: download a space's items as a file; import restores them. Also the manual cross-device fallback.
+Per-space backup in readable formats. **Token**: the space token downloads as a `.txt` file (from the "Your space" modal). **Data**: the schedule and todos export as either CSV (`kind,title,datetime,all_day,reminder,status,created_at`) or a human-readable text list; the same file re-imports, with the user choosing **Merge** (append) or **Replace** (clear then load). Works in demo (localStorage) and synced (Supabase) modes.
