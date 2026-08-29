@@ -2,6 +2,33 @@ import type { Item } from "../types";
 import { toggleDone, deleteItem } from "../store";
 import { colorFor, formatClock } from "../settings";
 
+export type SortMode = "manual" | "date" | "title" | "status";
+export interface ViewState {
+  search: string;
+  status: "all" | "pending" | "done";
+  sort: SortMode;
+}
+export function applyView(items: Item[], v: ViewState): Item[] {
+  const q = v.search.trim().toLowerCase();
+  let out = items.filter((i) => {
+    if (v.status !== "all" && i.status !== v.status) return false;
+    if (q && !i.title.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  const cmp = {
+    title: (a: Item, b: Item) => a.title.localeCompare(b.title),
+    date: (a: Item, b: Item) => {
+      if (!a.datetime && !b.datetime) return 0;
+      if (!a.datetime) return 1;
+      if (!b.datetime) return -1;
+      return a.datetime.localeCompare(b.datetime);
+    },
+    status: (a: Item, b: Item) => (a.status === "done" ? 1 : 0) - (b.status === "done" ? 1 : 0),
+    manual: (a: Item, b: Item) => a.order - b.order || a.created_at.localeCompare(b.created_at)
+  }[v.sort];
+  return out.slice().sort(cmp);
+}
+
 export function dayKey(dt: string): string {
   const d = new Date(dt);
   if (isNaN(d.getTime())) return "";
