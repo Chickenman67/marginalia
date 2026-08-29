@@ -1,5 +1,6 @@
 import { config, isDemoMode, STORAGE_KEYS } from "./config";
 import type { Item, ParsedItem } from "./types";
+import type { ImportRow } from "./backup";
 import { fetchItems, insertItem, updateItem, removeItem, subscribeToSpace, migrateLegacyToken } from "./supabase";
 
 const TOKEN_BYTES = 16; // 128 bits
@@ -69,6 +70,45 @@ export function setItems(next: Item[]) {
   items = next.slice().sort(byCreated);
   emit();
   persist();
+}
+
+export function getItems(): Item[] {
+  return items.slice();
+}
+
+export async function importItems(rows: ImportRow[], mode: "merge" | "replace"): Promise<void> {
+  const toItem = (r: ImportRow): Item => ({
+    id: crypto.randomUUID(),
+    space_token: getSpaceId(),
+    kind: r.kind,
+    title: r.title.slice(0, 200),
+    datetime: r.datetime,
+    all_day: r.all_day,
+    reminder: r.reminder,
+    status: r.status,
+    created_at: new Date().toISOString()
+  });
+
+  if (isDemoMode) {
+    if (mode === "replace") {
+      setItems(rows.map(toItem));
+    } else {
+      setItems([...items, ...rows.map(toItem)]);
+    }
+    return;
+  }
+
+  // synced mode
+  if (mode === "replace") {
+    for (const it of items) await removeItem(it.id);
+    items = [];
+  }
+  for (const r of rows) {
+    const saved = await insertItem(toItem(r));
+    items = [...items, saved];
+  }
+  items.sort(byCreated);
+  emit();
 }
 
 export async function loadItems(): Promise<void> {
