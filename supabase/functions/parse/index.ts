@@ -6,7 +6,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const NVIDIA_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
-const MODEL = "mistralai/mistral-nemotron";
+// NVIDIA's own Nemotron: small ~3B-active MoE = fastest cold start, lowest 502 risk
+// on the free shared tier. (mistralai/mistral-nemotron is a Mistral model, not NVIDIA's.)
+const MODEL = "nvidia/nemotron-3.5-lightning-30b-a3b";
 
 // Rate limiting is durable + per-space, enforced in Postgres via
 // public.check_rate_limit (called after the space token is validated).
@@ -104,10 +106,41 @@ Deno.serve(async (req) => {
     await supabase.from("spaces").update({ last_active_at: new Date().toISOString() }).eq("token", spaceId);
   } catch { /* non-fatal */ }
 
-  const nvidiaRes = await fetch(NVIDIA_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-    body: JSON.stringify({
+  // Retry on 429 / 5xx / network errors with exponential backoff. NVIDIA's free
+  // tier sends NO Retry-After header, so we back off ourselves (1s→2s→4s→8s, cap 30s).
+  // 404 (wrong model id / no entitlement) and other 4xx are NOT retried.
+  async function callNvidia(body: unknown): Promise<Response> {
+    let delay = 1000;
+    for (let attempt = 1; attempt <= 4; attempt++) {
+      let res: Response;
+      try {
+        res = await fetch(NVIDIA_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(120_000)
+        });
+      } catch (e) {
+        if (attempt === 4) throw e;
+        await new Promise((r) => setTimeout(r, delay));
+        delay = Math.min(delay * 2, 30_000);
+        continue;
+      }
+      if (res.ok) return res;
+      if (res.status === 429 || res.status >= 500) {
+        if (attempt === 4) return res;
+        await new Promise((r) => setTimeout(r, delay));
+        delay = Math.min(delay * 2, 30_000);
+        continue;
+      }
+      return res; // 4xx — not retryable
+    }
+    throw new Error("unreachable");
+  }
+
+  let nvidiaRes: Response;
+  try {
+    nvidiaRes = await callNvidia({
       model: MODEL,
       messages: [
         { role: "system", content: SYSTEM(tzOffsetMinutes) },
@@ -115,12 +148,16 @@ Deno.serve(async (req) => {
       ],
       response_format: { type: "json_object" },
       temperature: 0.2
-    })
-  });
+    });
+  } catch {
+    return new Response(JSON.stringify({ error: "nvidia unreachable" }), { status: 502, headers: { ...cors, "content-type": "application/json" } });
+  }
 
   if (!nvidiaRes.ok) {
     const text = await nvidiaRes.text();
-    return new Response(JSON.stringify({ error: "nvidia error", detail: text }), { status: 502, headers: { ...cors, "content-type": "application/json" } });
+    // Preserve NVIDIA's REAL status so the client can tell 429 (throttle) from 502/504 (retryable infra).
+    const fwd = nvidiaRes.status === 429 ? 429 : nvidiaRes.status >= 500 ? 502 : nvidiaRes.status;
+    return new Response(JSON.stringify({ error: "nvidia error", status: nvidiaRes.status, detail: text }), { status: fwd, headers: { ...cors, "content-type": "application/json" } });
   }
 
   const data = await nvidiaRes.json();
