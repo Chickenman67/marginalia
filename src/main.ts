@@ -1,6 +1,6 @@
 import "./style.css";
 import { isDemoMode } from "./config";
-import { loadItems, getSpaceToken, subscribeRealtime, subscribe } from "./store";
+import { loadItems, subscribeRealtime, subscribe } from "./store";
 import { mountHeader } from "./ui/header";
 import { mountInput, mountViews } from "./ui/input";
 import { fireNotifications, resetNotified } from "./reminders";
@@ -16,7 +16,7 @@ async function boot() {
   if (!isDemoMode) note?.remove();
 
   await loadItems();
-  await subscribeRealtime(getSpaceToken());
+  await subscribeRealtime();
 
   // Keep the list clear of the fixed dock, which grows when dictation/draft panels open.
   const dock = document.querySelector<HTMLElement>(".dock");

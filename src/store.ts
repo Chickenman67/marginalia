@@ -143,9 +143,9 @@ export async function deleteItem(id: string): Promise<void> {
 }
 
 // --- realtime hookup (no-op in demo mode) ---
-export async function subscribeRealtime(spaceToken: string): Promise<void> {
+export async function subscribeRealtime(): Promise<void> {
   if (isDemoMode) return;
-  subscribeToSpace(spaceToken, (incoming) => {
+  subscribeToSpace((incoming) => {
     items = incoming.slice().sort(byCreated);
     emit();
   });

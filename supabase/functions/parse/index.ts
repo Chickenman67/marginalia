@@ -8,17 +8,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const NVIDIA_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
 const MODEL = "mistralai/mistral-nemotron";
 
-// Simple in-memory rate limit (per edge instance). Swap for Redis/KV if needed.
-const WINDOW_MS = 60_000;
-const MAX_PER_WINDOW = 30;
-const hits: number[] = [];
-function rateLimited(): boolean {
-  const now = Date.now();
-  while (hits.length && hits[0] < now - WINDOW_MS) hits.shift();
-  if (hits.length >= MAX_PER_WINDOW) return true;
-  hits.push(now);
-  return false;
-}
+// Rate limiting is durable + per-space, enforced in Postgres via
+// public.check_rate_limit (called after the space token is validated).
 
 // The model must anchor "now" to the USER's local clock, not the server's UTC.
 // The browser sends its real UTC offset (minutes); we reconstruct the user's
@@ -50,9 +41,11 @@ Do not include commentary.`;
 }
 
 Deno.serve(async (req) => {
-  // CORS for browser-direct calls
+  // CORS for browser-direct calls. Restrict to the deployed app origin.
+  // Set APP_ORIGIN (supabase secrets set APP_ORIGIN=https://your-site.example).
+  const ALLOWED_ORIGIN = Deno.env.get("APP_ORIGIN") || "*";
   const cors = {
-    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
     "Access-Control-Allow-Headers": "content-type, authorization, x-space-token",
     "Access-Control-Allow-Methods": "POST, OPTIONS"
   };
@@ -77,7 +70,13 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: "unauthorized space" }), { status: 401, headers: { ...cors, "content-type": "application/json" } });
   }
 
-  if (rateLimited()) {
+  // Durable, per-space rate limit (NVIDIA is free but shared; protect the quota).
+  const { data: allowed, error: rlErr } = await supabase.rpc("check_rate_limit", {
+    p_space: spaceId,
+    p_max: 30,
+    p_window_sec: 60
+  });
+  if (rlErr || !allowed) {
     return new Response(JSON.stringify({ error: "rate limited, try again shortly" }), { status: 429, headers: { ...cors, "content-type": "application/json" } });
   }
 

@@ -6,8 +6,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 Deno.serve(async (req) => {
+  // Restrict to the deployed app origin. Set APP_ORIGIN (supabase secrets set
+  // APP_ORIGIN=https://your-site.example).
+  const ALLOWED_ORIGIN = Deno.env.get("APP_ORIGIN") || "*";
   const cors = {
-    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
     "Access-Control-Allow-Headers": "content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS"
   };
@@ -28,6 +31,16 @@ Deno.serve(async (req) => {
 
   if (!oldToken.startsWith("space-") || !newId || !newSecret) {
     return new Response(JSON.stringify({ ok: false, error: "bad input" }), { status: 400, headers: { ...cors, "content-type": "application/json" } });
+  }
+
+  // F7: per-call rate limit so the open (no-JWT) endpoint can't be hammered.
+  const { data: migAllowed, error: migRlErr } = await supabase.rpc("check_rate_limit", {
+    p_space: `migrate:${oldToken}`,
+    p_max: 10,
+    p_window_sec: 60
+  });
+  if (migRlErr || !migAllowed) {
+    return new Response(JSON.stringify({ ok: false, error: "rate limited, try again shortly" }), { status: 429, headers: { ...cors, "content-type": "application/json" } });
   }
 
   const { data, error } = await supabase.rpc("migrate_legacy_token", { old_token: oldToken, new_id: newId, new_secret: newSecret });

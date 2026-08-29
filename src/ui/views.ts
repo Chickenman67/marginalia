@@ -24,8 +24,8 @@ export function cardHTML(i: Item): string {
   const time = i.kind === "event" && i.datetime ? (i.all_day ? "" : clock(i.datetime)) : "";
   const remind = i.reminder ? `<span class="remind">🔔 ${clock(i.reminder)}</span>` : "";
   const accent = colorFor(i.datetime || i.reminder);
-  const accentStyle = accent ? ` style="border-left:4px solid ${accent}"` : "";
-  return `<div class="card ${i.status === "done" ? "done" : ""} ${isPast ? "past" : ""}" data-id="${i.id}"${accentStyle}>
+  const accentAttr = accent ? ` data-accent="${accent}"` : "";
+  return `<div class="card ${i.status === "done" ? "done" : ""} ${isPast ? "past" : ""}" data-id="${i.id}"${accentAttr}>
     <input type="checkbox" class="check" ${i.status === "done" ? "checked" : ""} aria-label="Complete ${esc(i.title)}" />
     <div class="body">
       <div class="title">${esc(i.title)}</div>
@@ -41,6 +41,11 @@ export function cardHTML(i: Item): string {
 }
 
 export function bindCardEvents(root: HTMLElement, onDelete: (id: string) => void = (id) => deleteItem(id)) {
+  // Accent border color is applied via the CSSOM (not an inline style attribute)
+  // so it survives a strict Content-Security-Policy that forbids inline styles.
+  root.querySelectorAll<HTMLElement>(".card[data-accent]").forEach((c) => {
+    c.style.borderLeft = `4px solid ${c.dataset.accent}`;
+  });
   root.querySelectorAll<HTMLInputElement>(".check").forEach((c) => {
     c.onchange = () => {
       const id = (c.closest(".card") as HTMLElement).dataset.id!;

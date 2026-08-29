@@ -58,10 +58,10 @@ export async function removeItem(id: string): Promise<void> {
 }
 
 // Realtime: only this space's rows. RLS scopes the channel server-side too.
-export async function subscribeToSpace(token: string, onUpdate: (items: Item[]) => void): Promise<void> {
+export async function subscribeToSpace(onUpdate: (items: Item[]) => void): Promise<void> {
   const supabase = await getClient();
-  supabase
-    .channel(`space:${token}`)
+   supabase
+    .channel(`space:${getSpaceId()}`)
     .on("postgres_changes", { event: "*", schema: "public", table: "items", filter: `space_token=eq.${getSpaceId()}` }, async () => {
       onUpdate(await fetchItems());
     })
