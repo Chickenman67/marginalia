@@ -80,6 +80,9 @@
         <button class="btn" id="tokenNew">New space</button>
         <button class="btn primary" id="tokenGo">Use this space</button>
       </div>
+      <div class="row">
+        <button class="btn" id="downloadToken">Download token (.txt)</button>
+      </div>
     </div>
   </div>
 
@@ -106,6 +109,18 @@
       <div id="colorRules"></div>
       <button type="button" class="btn ghost" id="addRule">+ Add color rule</button>
 
+      <div class="rules-head">Backup</div>
+      <div class="row">
+        <button class="btn" id="exportCsv" type="button">Export CSV</button>
+        <button class="btn" id="exportText" type="button">Export text</button>
+      </div>
+      <label class="toggle">Import a backup file</label>
+      <input type="file" id="importFile" accept=".csv,.txt,text/plain" />
+      <div class="row" id="importMode" hidden>
+        <button class="btn" id="importMerge" type="button">Merge</button>
+        <button class="btn primary" id="importReplace" type="button">Replace</button>
+      </div>
+      <div class="key-status" id="backupStatus"></div>
       <div class="row">
         <button class="btn" id="settingsCancel">Close</button>
         <button class="btn primary" id="settingsSave">Save</button>

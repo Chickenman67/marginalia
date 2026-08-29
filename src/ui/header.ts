@@ -1,8 +1,10 @@
 import { isDemoMode, STORAGE_KEYS } from "../config";
-import { getSpaceToken, setSpaceToken, splitToken, combineToken, genTokenPair } from "../store";
+import { getSpaceToken, setSpaceToken, splitToken, combineToken, genTokenPair, getItems } from "../store";
 import { getSettings, updateSettings, enableNotifications, type ColorRule } from "../settings";
 import { testProviderKey } from "../supabase";
 import { esc } from "./views";
+import { downloadToken, toCSV, toText, parseFile, applyImport, download } from "../backup";
+import type { ImportRow } from "../backup";
 
 export function mountHeader(): void {
   const label = document.getElementById("spaceLabel")!;
@@ -139,4 +141,57 @@ export function mountHeader(): void {
   });
   // pressing Enter in the token field also joins
   tokenInput.addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
+
+  // token download
+  document.getElementById("downloadToken")!.addEventListener("click", () => {
+    downloadToken(getSpaceToken());
+  });
+
+  // --- Backup: export / import ---
+  const exportCsv = document.getElementById("exportCsv") as HTMLButtonElement;
+  const exportText = document.getElementById("exportText") as HTMLButtonElement;
+  const importFile = document.getElementById("importFile") as HTMLInputElement;
+  const importMode = document.getElementById("importMode") as HTMLDivElement;
+  const importMerge = document.getElementById("importMerge") as HTMLButtonElement;
+  const importReplace = document.getElementById("importReplace") as HTMLButtonElement;
+  const backupStatus = document.getElementById("backupStatus") as HTMLSpanElement;
+
+  let pendingRows: ImportRow[] = [];
+
+  exportCsv.addEventListener("click", () => {
+    download(toCSV(getItems()), "marginalia-schedule.csv", "text/csv");
+  });
+  exportText.addEventListener("click", () => {
+    download(toText(getItems()), "marginalia-schedule.txt", "text/plain");
+  });
+  importFile.addEventListener("change", async () => {
+    const file = importFile.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    pendingRows = parseFile(text);
+    importFile.value = "";
+    if (!pendingRows.length) {
+      backupStatus.textContent = "No items found in that file.";
+      backupStatus.className = "key-status bad";
+      importMode.hidden = true;
+      return;
+    }
+    backupStatus.textContent = `Found ${pendingRows.length} item(s). Merge or replace?`;
+    backupStatus.className = "key-status";
+    importMode.hidden = false;
+  });
+  const runImport = async (mode: "merge" | "replace") => {
+    try {
+      await applyImport(pendingRows, mode);
+      backupStatus.textContent = `Imported ${pendingRows.length} item(s) (${mode}).`;
+      backupStatus.className = "key-status good";
+    } catch (e) {
+      backupStatus.textContent = `Import failed: ${e instanceof Error ? e.message : "error"}`;
+      backupStatus.className = "key-status bad";
+    }
+    importMode.hidden = true;
+    pendingRows = [];
+  };
+  importMerge.addEventListener("click", () => runImport("merge"));
+  importReplace.addEventListener("click", () => runImport("replace"));
 }
