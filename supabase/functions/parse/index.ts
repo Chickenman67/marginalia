@@ -6,9 +6,17 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const NVIDIA_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
-// NVIDIA's own Nemotron: small ~3B-active MoE = fastest cold start, lowest 502 risk
-// on the free shared tier. (mistralai/mistral-nemotron is a Mistral model, not NVIDIA's.)
-const MODEL = "nvidia/nemotron-3.5-lightning-30b-a3b";
+// NVIDIA's own Nemotron models, in priority order. The free shared tier is prone to
+// transient 502/504 and occasional model removal, so we try each in turn — smallest
+// fast MoE first, then a larger accurate instruct model, then another small MoE.
+// (mistralai/mistral-nemotron was a Mistral model, not NVIDIA's.)
+const MODELS = [
+  "nvidia/nemotron-3.5-lightning-30b-a3b",
+  "nvidia/llama-3.1-nemotron-70b-instruct",
+  "nvidia/nemotron-3-nano-30b-a3b",
+  "nvidia/llama-3.1-nemotron-51b-instruct",
+  "nvidia/nemotron-nano-3-30b-a3b"
+];
 
 // Rate limiting is durable + per-space, enforced in Postgres via
 // public.check_rate_limit (called after the space token is validated).
@@ -106,49 +114,56 @@ Deno.serve(async (req) => {
     await supabase.from("spaces").update({ last_active_at: new Date().toISOString() }).eq("token", spaceId);
   } catch { /* non-fatal */ }
 
-  // Retry on 429 / 5xx / network errors with exponential backoff. NVIDIA's free
-  // tier sends NO Retry-After header, so we back off ourselves (1s→2s→4s→8s, cap 30s).
-  // 404 (wrong model id / no entitlement) and other 4xx are NOT retried.
-  async function callNvidia(body: unknown): Promise<Response> {
-    let delay = 1000;
-    for (let attempt = 1; attempt <= 4; attempt++) {
-      let res: Response;
-      try {
-        res = await fetch(NVIDIA_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-          body: JSON.stringify(body),
-          signal: AbortSignal.timeout(120_000)
-        });
-      } catch (e) {
-        if (attempt === 4) throw e;
+  // Try each NVIDIA model in MODELS. Per model we retry on 429 / 5xx / network errors
+  // with exponential backoff (NVIDIA's free tier sends NO Retry-After header, so we
+  // back off ourselves: 1s→2s→4s, cap 30s). If a model stays unhealthy (or 404s, i.e.
+  // it was removed from the catalog), we fall through to the next model. 401/403 are
+  // key/auth errors shared by all models, so we surface those immediately.
+  async function callNvidia(): Promise<Response> {
+    let lastRes: Response | null = null;
+    for (const model of MODELS) {
+      const body = {
+        model,
+        messages: [
+          { role: "system", content: SYSTEM(tzOffsetMinutes) },
+          { role: "user", content: phrase }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.2
+      };
+      let delay = 1000;
+      let res: Response | null = null;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          res = await fetch(NVIDIA_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+            body: JSON.stringify(body),
+            signal: AbortSignal.timeout(120_000)
+          });
+        } catch (e) {
+          if (attempt === 3) break;
+          await new Promise((r) => setTimeout(r, delay));
+          delay = Math.min(delay * 2, 30_000);
+          continue;
+        }
+        if (res.ok) return res;
+        // 401/403 = auth/key problem — same for every model, stop here.
+        if (res.status === 401 || res.status === 403) return res;
+        // 429 / 5xx / 404 = retryable or model removed → fall back to next model after attempts.
+        if (attempt === 3) break;
         await new Promise((r) => setTimeout(r, delay));
         delay = Math.min(delay * 2, 30_000);
-        continue;
       }
-      if (res.ok) return res;
-      if (res.status === 429 || res.status >= 500) {
-        if (attempt === 4) return res;
-        await new Promise((r) => setTimeout(r, delay));
-        delay = Math.min(delay * 2, 30_000);
-        continue;
-      }
-      return res; // 4xx — not retryable
+      if (res) lastRes = res;
     }
-    throw new Error("unreachable");
+    if (lastRes) return lastRes;
+    throw new Error("no models available");
   }
 
   let nvidiaRes: Response;
   try {
-    nvidiaRes = await callNvidia({
-      model: MODEL,
-      messages: [
-        { role: "system", content: SYSTEM(tzOffsetMinutes) },
-        { role: "user", content: phrase }
-      ],
-      response_format: { type: "json_object" },
-      temperature: 0.2
-    });
+    nvidiaRes = await callNvidia();
   } catch {
     return new Response(JSON.stringify({ error: "nvidia unreachable" }), { status: 502, headers: { ...cors, "content-type": "application/json" } });
   }
