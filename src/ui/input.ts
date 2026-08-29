@@ -2,7 +2,7 @@ import { isDemoMode } from "../config";
 import { addItem, getSpaceId, getSpaceToken, subscribe } from "../store";
 import { parsePhrase, polishPhrase } from "../supabase";
 import { createSpeech } from "../speech";
-import { cardHTML, bindCardEvents, groupByDay, esc } from "./views";
+import { cardHTML, bindCardEvents, groupByDay, esc, applyView, type ViewState, type SortMode } from "./views";
 import { openCalendar, openTimePicker } from "./calendar";
 import { dueItems } from "../reminders";
 import { getSettings, formatClock, subscribeSettings } from "../settings";
@@ -233,6 +233,34 @@ export function mountViews(): void {
   let latestItems: Item[] = [];
   subscribe((items: Item[]) => { latestItems = items; renderAll(items); });
 
+  const viewState: ViewState = { search: "", status: "all", sort: "manual" };
+  const controls = document.createElement("div");
+  controls.className = "list-controls";
+  controls.innerHTML = `
+    <input type="search" class="grow" id="lvSearch" placeholder="Search titles…" aria-label="Search" />
+    <select id="lvStatus" aria-label="Filter by status">
+      <option value="all">All</option><option value="pending">Pending</option><option value="done">Done</option>
+    </select>
+    <select id="lvSort" class="sort" aria-label="Sort">
+      <option value="manual">Manual</option>
+      <option value="date">By date</option>
+      <option value="title">By title</option>
+      <option value="status">By status</option>
+    </select>`;
+  vSched.parentElement?.insertBefore(controls, vSched);
+  (document.getElementById("lvSearch") as HTMLInputElement).addEventListener("input", (e) => {
+    viewState.search = (e.target as HTMLInputElement).value;
+    renderAll(latestItems);
+  });
+  (document.getElementById("lvStatus") as HTMLSelectElement).addEventListener("change", (e) => {
+    viewState.status = (e.target as HTMLSelectElement).value as ViewState["status"];
+    renderAll(latestItems);
+  });
+  (document.getElementById("lvSort") as HTMLSelectElement).addEventListener("change", (e) => {
+    viewState.sort = (e.target as HTMLSelectElement).value as SortMode;
+    renderAll(latestItems);
+  });
+
   // Re-render immediately when a time/color setting changes so existing cards
   // and clock strings update without reloading.
   subscribeSettings(() => {
@@ -253,8 +281,8 @@ export function mountViews(): void {
   });
 
   function renderAll(items: Item[]) {
-    const events = items.filter((i) => i.kind === "event").sort((a, b) => (a.datetime || "").localeCompare(b.datetime || ""));
-    const todos = items.filter((i) => i.kind === "todo").sort((a, b) => (a.status === "done" ? 1 : 0) - (b.status === "done" ? 1 : 0));
+    const events = applyView(items.filter((i) => i.kind === "event"), viewState);
+    const todos = applyView(items.filter((i) => i.kind === "todo"), viewState);
     const due = dueItems(items);
 
     cSched.textContent = String(events.filter((i) => i.status !== "done").length || "");
