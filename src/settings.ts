@@ -10,6 +10,8 @@ export interface Settings {
   autoRemindEvents: boolean;
   militaryTime: boolean;
   colorRules: ColorRule[];
+  autoDelete: boolean;
+  autoDeleteDays: number;
 }
 
 const KEY = "marginalia.settings";
@@ -28,7 +30,9 @@ const defaults: Settings = {
   browserNotifications: false,
   autoRemindEvents: true,
   militaryTime: false,
-  colorRules: defaultRules
+  colorRules: defaultRules,
+  autoDelete: false,
+  autoDeleteDays: 30
 };
 
 let current: Settings = load();

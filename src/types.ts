@@ -10,6 +10,8 @@ export interface Item {
   reminder: string | null; // ISO 8601 or null
   status: "pending" | "done";
   created_at: string;
+  order: number;
+  pinned: boolean;
 }
 
 // Shape returned by the LLM proxy / parser.
