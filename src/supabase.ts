@@ -68,6 +68,12 @@ export async function subscribeToSpace(token: string, onUpdate: (items: Item[]) 
     .subscribe();
 }
 
+// The browser's real UTC offset (minutes). Positive = ahead of UTC. The parser
+// uses this so it anchors "now" to the user's actual local clock.
+function tzOffsetMinutes(): number {
+  return -new Date().getTimezoneOffset();
+}
+
 // --- LLM parsing via proxy (NVIDIA default) or direct provider (user key) ---
 export async function parsePhrase(phrase: string): Promise<ParsedItem> {
   const userKey = localStorage.getItem(STORAGE_KEYS.llmKey);
@@ -83,7 +89,7 @@ export async function parsePhrase(phrase: string): Promise<ParsedItem> {
         Authorization: `Bearer ${config.supabaseAnon}`,
         "x-space-token": getSpaceToken()
       },
-      body: JSON.stringify({ phrase })
+      body: JSON.stringify({ phrase, tzOffsetMinutes: tzOffsetMinutes() })
     });
     if (!res.ok) throw new Error(`parse failed: ${res.status}`);
     const json = await res.json();
@@ -118,7 +124,7 @@ async function parseDirect(phrase: string, provider: string, key: string): Promi
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-    body: JSON.stringify({ model: "llama-3.1-8b-instant", messages: [{ role: "system", content: sys }, { role: "user", content: phrase }], response_format: { type: "json_object" } })
+    body: JSON.stringify({ model: "openai/gpt-oss-20b", messages: [{ role: "system", content: sys }, { role: "user", content: phrase }], response_format: { type: "json_object" } })
   });
   const j = await res.json();
   if (!res.ok || !j.choices?.[0]?.message?.content) {
@@ -127,25 +133,40 @@ async function parseDirect(phrase: string, provider: string, key: string): Promi
   return normalize(JSON.parse(j.choices[0].message.content));
 }
 
+// The LLM is asked for local wall-clock time but often returns a UTC/Z timestamp
+// (or omits the offset). Interpreting that as-is shifts the time by the local
+// UTC offset. This pins the returned wall-clock to the user's LOCAL timezone so
+// "8:37 PM" actually lands at 8:37 PM on their device.
+function asLocalISO(value: any): string | null {
+  if (!value) return null;
+  const s = String(value).trim();
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})(?::(\d{2}))?/);
+  if (!m) return s; // can't parse; leave as-is
+  const [, y, mo, d, h, mi, se] = m;
+  const dt = new Date(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(se || 0), 0);
+  if (isNaN(dt.getTime())) return s;
+  return dt.toISOString();
+}
+
 function normalize(j: any): ParsedItem {
   const kind = j.type === "event" || j.kind === "event" ? "event" : "todo";
-  const datetime = j.datetime || j.start || null;
+  const datetime = asLocalISO(j.datetime || j.start);
   return {
     title: String(j.title ?? "Untitled").slice(0, 120),
     kind,
-    datetime: datetime || null,
-    reminder: j.reminder || (kind === "event" ? datetime : null)
+    datetime,
+    reminder: asLocalISO(j.reminder || (kind === "event" ? j.datetime || j.start : null))
   };
 }
 
 function normalizeDraft(j: any): DraftItem {
   const kind = j.type === "event" || j.kind === "event" ? "event" : "todo";
-  const datetime = j.datetime || j.start || null;
+  const datetime = asLocalISO(j.datetime || j.start);
   return {
     title: String(j.title ?? "Untitled").slice(0, 120),
     kind,
-    datetime: datetime || null,
-    reminder: j.reminder || (kind === "event" ? datetime : null)
+    datetime,
+    reminder: asLocalISO(j.reminder || (kind === "event" ? j.datetime || j.start : null))
   };
 }
 
@@ -157,7 +178,7 @@ export async function polishPhrase(paragraph: string): Promise<PolishResult> {
     const res = await fetch(config.parseFunction.replace(/\/parse$/, "/polish"), {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.supabaseAnon}`, "x-space-token": getSpaceToken() },
-      body: JSON.stringify({ paragraph })
+      body: JSON.stringify({ paragraph, tzOffsetMinutes: tzOffsetMinutes() })
     });
     if (!res.ok) throw new Error(`polish failed: ${res.status}`);
     return (await res.json()) as PolishResult;
@@ -206,7 +227,7 @@ export async function testProviderKey(provider: string, key: string): Promise<{ 
       : await fetch("https://api.groq.com/openai/v1/chat/completions", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-          body: JSON.stringify({ model: "llama-3.1-8b-instant", messages: [{ role: "user", content: "reply with the single word ok" }] })
+          body: JSON.stringify({ model: "openai/gpt-oss-20b", messages: [{ role: "user", content: "reply with the single word ok" }] })
         });
     const j = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -219,7 +240,7 @@ export async function testProviderKey(provider: string, key: string): Promise<{ 
 }
 
 async function polishDirect(paragraph: string, provider: string, key: string): Promise<PolishResult> {
-  const sys = "Organize a rambling paragraph into a JSON object {items:[{title, kind('event'|'todo'), datetime(ISO8601 or null), reminder(ISO8601 or null)}]}. If a line has a time it is an event, otherwise a todo. Resolve relative times (today/tomorrow/next week) to the actual date in the current year. Cap at 100 items.";
+  const sys = "Organize a rambling paragraph into a JSON object {items:[{title, kind('event'|'todo'), datetime(ISO8601 or null), reminder(ISO8601 or null)}]}. If a line has a time it is an event, otherwise a todo. Resolve relative times to the user's LOCAL time and current year. RELATIVE-NOW cues like 'in the next hour' / 'in 30 minutes' mean FROM NOW (today), never tomorrow — anchor on the current time. Weekday names resolve to the NEXT occurrence from today. Cap at 100 items.";
   let parsed: any;
   if (provider === "gemini") {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${key}`;
@@ -254,7 +275,7 @@ async function polishDirect(paragraph: string, provider: string, key: string): P
     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ model: "llama-3.1-8b-instant", messages: [{ role: "system", content: sys }, { role: "user", content: paragraph }], response_format: { type: "json_object" } })
+      body: JSON.stringify({ model: "openai/gpt-oss-20b", messages: [{ role: "system", content: sys }, { role: "user", content: paragraph }], response_format: { type: "json_object" } })
     });
     const j = await res.json();
     if (!res.ok || !j.choices?.[0]?.message?.content) {

@@ -22,6 +22,7 @@ export function mountHeader(): void {
   const provider = document.getElementById("provider") as HTMLSelectElement;
   const setAuto = document.getElementById("setAutoRemind") as HTMLInputElement;
   const setNotify = document.getElementById("setNotify") as HTMLInputElement;
+  const setMilitary = document.getElementById("setMilitary") as HTMLInputElement;
   const keyStatus = document.getElementById("keyStatus") as HTMLSpanElement;
   const rulesHost = document.getElementById("colorRules") as HTMLDivElement;
 
@@ -58,6 +59,7 @@ export function mountHeader(): void {
     apiKey.value = localStorage.getItem(STORAGE_KEYS.llmKey) || "";
     provider.value = localStorage.getItem(STORAGE_KEYS.provider) || "nvidia";
     setAuto.checked = s.autoRemindEvents;
+    setMilitary.checked = s.militaryTime;
     setNotify.checked = s.browserNotifications && typeof Notification !== "undefined" && Notification.permission === "granted";
     keyStatus.textContent = "";
     keyStatus.className = "key-status";
@@ -71,7 +73,7 @@ export function mountHeader(): void {
   document.getElementById("settingsSave")!.addEventListener("click", async () => {
     localStorage.setItem(STORAGE_KEYS.llmKey, apiKey.value.trim());
     localStorage.setItem(STORAGE_KEYS.provider, provider.value);
-    updateSettings({ autoRemindEvents: setAuto.checked, colorRules: readRules() });
+    updateSettings({ autoRemindEvents: setAuto.checked, militaryTime: setMilitary.checked, colorRules: readRules() });
     if (setNotify.checked) {
       await enableNotifications();
     } else {

@@ -21,15 +21,24 @@ function rateLimited(): boolean {
   return false;
 }
 
-const SYSTEM = `You organize a rambling speech or note into a clean list of discrete tasks and events.
+function localNow(tzOffsetMinutes: number): Date {
+  return new Date(Date.now() + tzOffsetMinutes * 60000);
+}
+
+function SYSTEM(tzOffsetMinutes: number): string {
+  const now = localNow(tzOffsetMinutes);
+  return `You organize a rambling speech or note into a clean list of discrete tasks and events.
 Output ONLY valid JSON of the form:
-{ "items": [ { "title": string, "kind": "todo"|"event", "datetime": ISO8601 with timezone and CURRENT year (${new Date().getFullYear()}) or null, "reminder": ISO8601 or null } ] }
+{ "items": [ { "title": string, "kind": "todo"|"event", "datetime": ISO8601 with timezone and CURRENT year (${now.getFullYear()}) or null, "reminder": ISO8601 or null } ] }
+The user's CURRENT local time RIGHT NOW is: ${now.toString()} (their local offset from UTC is ${tzOffsetMinutes >= 0 ? "+" : "-"}${Math.abs(tzOffsetMinutes)} minutes).
 Rules:
 - Split run-on sentences into separate items.
 - "event" only when a specific time is implied; otherwise "todo".
-- Resolve relative cues (today, tomorrow, next Tuesday) to the user's local time and current year.
+- Resolve relative cues (today, tomorrow, next Tuesday) to the user's LOCAL wall-clock time and current year.
+- ALWAYS emit the user's LOCAL wall-clock hour/minute. Do NOT convert to UTC.
 - Each title is a short, polished, grammatical label (no leading articles like "ok" or "so").
 - Do not include commentary.`;
+}
 
 Deno.serve(async (req) => {
   // CORS for browser-direct calls
@@ -69,9 +78,12 @@ Deno.serve(async (req) => {
   }
 
   let paragraph = "";
+  let tzOffsetMinutes = 0;
   try {
     const body = await req.json();
     paragraph = (body.paragraph || "").toString().slice(0, 2000);
+    const off = Number(body.tzOffsetMinutes);
+    if (Number.isFinite(off)) tzOffsetMinutes = off;
   } catch {
     return new Response(JSON.stringify({ error: "invalid body" }), { status: 400, headers: { ...cors, "content-type": "application/json" } });
   }
@@ -90,7 +102,7 @@ Deno.serve(async (req) => {
     body: JSON.stringify({
       model: MODEL,
       messages: [
-        { role: "system", content: SYSTEM },
+        { role: "system", content: SYSTEM(tzOffsetMinutes) },
         { role: "user", content: paragraph }
       ],
       response_format: { type: "json_object" },

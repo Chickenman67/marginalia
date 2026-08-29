@@ -5,6 +5,7 @@ import { createSpeech } from "../speech";
 import { cardHTML, bindCardEvents, groupByDay, esc } from "./views";
 import { openCalendar, openTimePicker } from "./calendar";
 import { dueItems } from "../reminders";
+import { getSettings, formatClock, subscribeSettings } from "../settings";
 import type { Item, ParsedItem, DraftItem, PolishResult } from "../types";
 
 function el<T extends HTMLElement>(sel: string): T { return document.querySelector(sel) as T; }
@@ -132,7 +133,7 @@ export function mountInput(): void {
       inp.oninput = () => { currentDraft[+inp.closest(".draft-row")!.getAttribute("data-idx")!].title = inp.value; };
     });
     draftEl.querySelectorAll<HTMLInputElement>(".draft-dt").forEach((inp) => {
-      inp.oninput = () => { currentDraft[+inp.closest(".draft-row")!.getAttribute("data-idx")!].datetime = inp.value ? new Date(inp.value).toISOString() : null; };
+      inp.oninput = () => { currentDraft[+inp.closest(".draft-row")!.getAttribute("data-idx")!].datetime = inp.value ? localToISO(inp.value) : null; };
     });
     draftEl.querySelectorAll<HTMLButtonElement>(".draft-move").forEach((b) => {
       b.onclick = () => {
@@ -198,6 +199,18 @@ function toLocalInput(dt: string | null): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+// Interpret a local wall-clock string ("YYYY-MM-DDTHH:MM") as the user's LOCAL
+// time, not UTC. `new Date("2026-08-28T15:00")` would treat it as UTC and shift
+// the stored time by the timezone offset — this pins it to local wall clock.
+function localToISO(s: string): string | null {
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})(?::(\d{2}))?/);
+  if (!m) return null;
+  const [, y, mo, d, h, mi, se] = m;
+  const dt = new Date(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(se || 0), 0);
+  if (isNaN(dt.getTime())) return null;
+  return dt.toISOString();
+}
+
 export function mountViews(): void {
   const vSched = el<HTMLDivElement>("#view-schedule");
   const vTodo = el<HTMLDivElement>("#view-todos");
@@ -217,7 +230,29 @@ export function mountViews(): void {
     };
   });
 
-  subscribe((items: Item[]) => {
+  let latestItems: Item[] = [];
+  subscribe((items: Item[]) => { latestItems = items; renderAll(items); });
+
+  // Re-render immediately when a time/color setting changes so existing cards
+  // and clock strings update without reloading.
+  subscribeSettings(() => {
+    renderAll(latestItems);
+    syncTimeTrigger();
+    // refresh the live preview box (shown before adding) so its clock matches the new 24h setting
+    const pBox = el<HTMLDivElement>("#preview");
+    const pText = el<HTMLSpanElement>("#previewText");
+    const phrase = el<HTMLInputElement>("#phrase");
+    if (pBox && pText && phrase && pBox.classList.contains("show")) {
+      const txt = phrase.value.trim();
+      if (txt) {
+        const g = guess(txt);
+        const mark = g.kind === "event" ? "[E]" : "[ ]";
+        pText.textContent = `${mark} ${esc(g.title)}${g.datetime ? " · " + formatClock(g.datetime) : ""}`;
+      }
+    }
+  });
+
+  function renderAll(items: Item[]) {
     const events = items.filter((i) => i.kind === "event").sort((a, b) => (a.datetime || "").localeCompare(b.datetime || ""));
     const todos = items.filter((i) => i.kind === "todo").sort((a, b) => (a.status === "done" ? 1 : 0) - (b.status === "done" ? 1 : 0));
     const due = dueItems(items);
@@ -233,7 +268,7 @@ export function mountViews(): void {
     bindCardEvents(schedList);
     bindCardEvents(vTodo);
     bindCardEvents(vDue);
-  });
+  }
 
   // --- Manual Schedule entry with a calendar popover + time picker ---
   const form = el<HTMLFormElement>("#addEvent");
@@ -248,9 +283,17 @@ export function mountViews(): void {
     pickedDate = iso;
     dateTrigger.textContent = fmtDate(iso);
   });
-  const syncTimeTrigger = () => { timeTrigger.textContent = allDayInp.checked ? "All day" : (pickedTime || "Time"); };
+  const syncTimeTrigger = () => {
+    if (allDayInp.checked) { timeTrigger.textContent = "All day"; return; }
+    if (!pickedTime) { timeTrigger.textContent = "Time"; return; }
+    const [hh, mm] = pickedTime.split(":").map(Number);
+    timeTrigger.textContent = getSettings().militaryTime
+      ? pickedTime
+      : `${String(((hh + 11) % 12) + 1).padStart(2, "0")}:${String(mm).padStart(2, "0")} ${hh >= 12 ? "PM" : "AM"}`;
+  };
   timeTrigger.onclick = () => {
     if (allDayInp.checked) return;
+    (window as any).__marginaliaMilitary = getSettings().militaryTime;
     openTimePicker(timeTrigger, pickedTime || "09:00", (t) => { pickedTime = t; syncTimeTrigger(); });
   };
   allDayInp.onchange = syncTimeTrigger;
@@ -262,7 +305,9 @@ export function mountViews(): void {
     if (!title) return;
     const allDay = allDayInp.checked;
     const when = allDay ? `${pickedDate}T00:00:00` : `${pickedDate}T${pickedTime || "09:00"}:00`;
-    await addItem({ title, kind: "event", datetime: new Date(when).toISOString(), reminder: new Date(when).toISOString() }, getSpaceId());
+    const iso = localToISO(when);
+    if (!iso) return;
+    await addItem({ title, kind: "event", datetime: iso, reminder: iso }, getSpaceId());
     el<HTMLInputElement>("#evTitle").value = "";
   });
 

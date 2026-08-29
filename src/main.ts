@@ -18,6 +18,16 @@ async function boot() {
   await loadItems();
   await subscribeRealtime(getSpaceToken());
 
+  // Keep the list clear of the fixed dock, which grows when dictation/draft panels open.
+  const dock = document.querySelector<HTMLElement>(".dock");
+  const main = document.querySelector<HTMLElement>("main");
+  if (dock && main) {
+    const fit = () => { main.style.paddingBottom = `${dock.offsetHeight + 24}px`; };
+    fit();
+    new ResizeObserver(fit).observe(dock);
+    window.addEventListener("resize", fit);
+  }
+
   // Seed the notified-set so we don't notify for items already due at load.
   subscribe((items: Item[]) => resetNotified(items.map((i) => i.id)));
 

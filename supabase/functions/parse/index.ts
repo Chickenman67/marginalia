@@ -20,12 +20,34 @@ function rateLimited(): boolean {
   return false;
 }
 
-const SYSTEM = `Convert a scheduling phrase into JSON. Output ONLY valid JSON with these fields:
+// The model must anchor "now" to the USER's local clock, not the server's UTC.
+// The browser sends its real UTC offset (minutes); we reconstruct the user's
+// actual local time here so relative phrases ("in 30 minutes", "Tuesday 3pm")
+// resolve to the wall clock the user expects.
+function localNow(tzOffsetMinutes: number): Date {
+  return new Date(Date.now() + tzOffsetMinutes * 60000);
+}
+
+function SYSTEM(tzOffsetMinutes: number): string {
+  const now = localNow(tzOffsetMinutes);
+  return `Convert a scheduling phrase into JSON. Output ONLY valid JSON with these fields:
 - title: short task label (string)
-- datetime: ISO 8601 with timezone and CURRENT year (${new Date().getFullYear()}), or null if no specific time
+- datetime: the user's LOCAL wall-clock time as ISO 8601 with their LOCAL timezone offset, or null if no specific time
 - type: "todo" if no time given, otherwise "event"
 - reminder: ISO 8601 time to remind, or null
-Resolve relative cues (today, tomorrow, next Tuesday) to the user's local time and the current year. Do not include commentary.`;
+
+The user's CURRENT local time RIGHT NOW is: ${now.toString()} (ISO: ${now.toISOString()}). Their local timezone offset from UTC is ${tzOffsetMinutes >= 0 ? "+" : "-"}${Math.abs(tzOffsetMinutes)} minutes.
+
+CRITICAL — all times you output are the user's LOCAL wall clock:
+- "in the next hour", "within an hour", "in 30 minutes", "in X minutes", "in X hours", "right now", "asap" => take the current LOCAL time (${now.toTimeString().slice(0, 5)}) and ADD the duration. If the sum passes midnight, datetime is still TODAY or just past midnight — NOT tomorrow at 11am.
+- Example: if it is 8:37 PM local and the user says "in the next hour", the datetime MUST be about 9:37 PM TODAY local. Never output 11:00 AM or any time on a different day for a relative-now phrase.
+- "tonight"/"this evening" => today, 18:00–23:00 local. "morning" => today if before noon, else tomorrow ~9:00. "afternoon" => today if before 12:00, else tomorrow ~14:00.
+- "today" => current LOCAL calendar day. "tomorrow" => next LOCAL calendar day.
+- Weekday names => the NEXT occurrence of that weekday counting from TODAY local (today does not count unless it is that weekday and the time is still ahead).
+- If NO time is mentioned at all => type "todo", datetime null.
+- ALWAYS emit the user's LOCAL wall-clock hour/minute. Do NOT convert to UTC.
+Do not include commentary.`;
+}
 
 Deno.serve(async (req) => {
   // CORS for browser-direct calls
@@ -65,9 +87,12 @@ Deno.serve(async (req) => {
   }
 
   let phrase = "";
+  let tzOffsetMinutes = 0;
   try {
     const body = await req.json();
     phrase = (body.phrase || "").toString().slice(0, 500);
+    const off = Number(body.tzOffsetMinutes);
+    if (Number.isFinite(off)) tzOffsetMinutes = off;
   } catch {
     return new Response(JSON.stringify({ error: "invalid body" }), { status: 400, headers: { ...cors, "content-type": "application/json" } });
   }
@@ -86,7 +111,7 @@ Deno.serve(async (req) => {
     body: JSON.stringify({
       model: MODEL,
       messages: [
-        { role: "system", content: SYSTEM },
+        { role: "system", content: SYSTEM(tzOffsetMinutes) },
         { role: "user", content: phrase }
       ],
       response_format: { type: "json_object" },

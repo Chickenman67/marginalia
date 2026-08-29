@@ -14,11 +14,11 @@
     <header>
       <h1>Marginalia</h1>
       <span class="tag">your quiet planner</span>
-        <span class="space-chip" id="spaceChip">
-          <span class="dot"></span><span id="spaceLabel">demo</span>
-          <button id="copyToken" title="Copy space token">copy</button>
-          <button id="settingsBtn" class="icon" title="Settings (API key, reminders)">⚙</button>
-        </span>
+      <span class="space-chip" id="spaceChip">
+        <span class="dot"></span><span id="spaceLabel">demo</span>
+        <button id="copyToken" title="Copy space token">copy</button>
+      </span>
+      <button id="settingsBtn" class="icon gear-btn" title="Settings (API key, reminders)" aria-label="Settings">⚙</button>
     </header>
 
     <div class="tabs" role="tablist">
@@ -101,6 +101,7 @@
 
       <label class="toggle"><input type="checkbox" id="setAutoRemind" /> Remind me at each event's time</label>
       <label class="toggle"><input type="checkbox" id="setNotify" /> Browser notifications (while app is open)</label>
+      <label class="toggle"><input type="checkbox" id="setMilitary" /> Use 24-hour (military) time</label>
 
       <div class="rules-head">Color by due date <span class="muted">(most specific matching rule wins)</span></div>
       <div id="colorRules"></div>

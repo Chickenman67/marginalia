@@ -1,6 +1,6 @@
 import type { Item } from "../types";
 import { toggleDone, deleteItem } from "../store";
-import { colorFor } from "../settings";
+import { colorFor, formatClock } from "../settings";
 
 export function dayKey(dt: string): string {
   const d = new Date(dt);
@@ -16,9 +16,7 @@ export function dayKey(dt: string): string {
   return d.toLocaleDateString(undefined, { month: "long", day: "numeric" });
 }
 export function clock(dt: string | null): string {
-  if (!dt) return "";
-  const d = new Date(dt);
-  return isNaN(d.getTime()) ? "" : d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  return formatClock(dt);
 }
 
 export function cardHTML(i: Item): string {
