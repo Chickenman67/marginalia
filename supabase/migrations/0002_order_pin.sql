@@ -1,0 +1,2 @@
+ALTER TABLE items ADD COLUMN "order" integer NOT NULL DEFAULT 0;
+ALTER TABLE items ADD COLUMN pinned boolean NOT NULL DEFAULT false;

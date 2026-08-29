@@ -23,6 +23,7 @@ export async function fetchItems(): Promise<Item[]> {
     .from("items")
     .select("*")
     .eq("space_token", token)
+    .order("order", { ascending: true })
     .order("created_at", { ascending: true });
   if (error) throw error;
   return (data as Item[]) ?? [];
