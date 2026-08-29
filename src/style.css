@@ -283,3 +283,37 @@ main { flex: 1; padding: 18px 22px 150px; }
 .btn.ghost:hover { background: var(--paper); color: var(--ink); }
 .toggle { display: flex; align-items: center; gap: 9px; font-size: 14px; color: var(--ink); margin: 4px 0 12px; cursor: pointer; }
 .toggle input { width: 18px; height: 18px; accent-color: var(--ink); }
+
+/* settings tabs */
+.modal.settings { max-width: 380px; }
+@media (min-width: 640px) {
+  .modal.settings { max-width: 560px; }
+}
+.tab-strip { display: flex; gap: 4px; margin: 0 0 16px; border-bottom: 1px solid var(--line); }
+.stab { flex: 1; background: none; border: none; padding: 10px 6px; cursor: pointer;
+        font: 600 14px "Inter"; color: var(--muted); border-bottom: 2px solid transparent; }
+.stab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); }
+.stab:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+
+/* list controls */
+.list-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+.list-controls input[type="search"], .list-controls select, .list-controls .sort {
+  padding: 8px 10px; border-radius: 9px; border: 1px solid var(--line-strong);
+  background: var(--bg); color: var(--ink); font: inherit; font-size: 14px; }
+.list-controls .grow { flex: 1; min-width: 140px; }
+
+/* selection mode */
+.sel-toolbar { display: none; gap: 8px; align-items: center; margin-bottom: 10px;
+  padding: 8px 12px; background: var(--paper); border: 1px solid var(--line); border-radius: 10px; }
+.sel-toolbar.show { display: flex; }
+.sel-toolbar .count { font-weight: 600; }
+
+/* cards */
+.card { position: relative; }
+.card.selected { outline: 2px solid var(--ink); }
+.drag-h { cursor: grab; color: var(--muted); padding: 0 4px; user-select: none; }
+.card.dragging { opacity: .5; }
+.pin-btn { border: none; background: none; cursor: pointer; font-size: 15px; line-height: 1; padding: 2px 4px; }
+.card .pin-btn.on { filter: none; }
+.day-del { margin-left: auto; font-size: 12px; color: var(--muted); background: none; border: none; cursor: pointer; }
+.day-del:hover { color: var(--ink); }
