@@ -1,6 +1,7 @@
 import "./style.css";
 import { isDemoMode } from "./config";
-import { loadItems, subscribeRealtime, subscribe } from "./store";
+import { loadItems, subscribeRealtime, subscribe, deleteOldEvents } from "./store";
+import { getSettings } from "./settings";
 import { mountHeader } from "./ui/header";
 import { mountInput, mountViews } from "./ui/input";
 import { fireNotifications, resetNotified } from "./reminders";
@@ -17,6 +18,13 @@ async function boot() {
 
   await loadItems();
   await subscribeRealtime();
+
+  const runAutoDelete = () => {
+    const s = getSettings();
+    if (s.autoDelete) deleteOldEvents(s.autoDeleteDays);
+  };
+  runAutoDelete();
+  setInterval(runAutoDelete, 5 * 60 * 1000);
 
   // Keep the list clear of the fixed dock, which grows when dictation/draft panels open.
   const dock = document.querySelector<HTMLElement>(".dock");

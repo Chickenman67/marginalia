@@ -1,5 +1,5 @@
 import { isDemoMode } from "../config";
-import { addItem, getSpaceId, getSpaceToken, subscribe } from "../store";
+import { addItem, getSpaceId, getSpaceToken, subscribe, deleteItem } from "../store";
 import { parsePhrase, polishPhrase } from "../supabase";
 import { createSpeech } from "../speech";
 import { cardHTML, bindCardEvents, groupByDay, esc, applyView, type ViewState, type SortMode } from "./views";
@@ -261,6 +261,45 @@ export function mountViews(): void {
     renderAll(latestItems);
   });
 
+  const selected = new Set<string>();
+  const toolbar = document.createElement("div");
+  toolbar.className = "sel-toolbar";
+  toolbar.innerHTML = `<span class="count">0 selected</span>
+    <button class="btn" id="selDelete" type="button">Delete selected</button>
+    <button class="btn" id="selCancel" type="button">Cancel</button>`;
+  vSched.parentElement?.insertBefore(toolbar, controls);
+  const selBtn = document.createElement("button");
+  selBtn.className = "btn toggle";
+  selBtn.id = "selMode";
+  selBtn.textContent = "Select";
+  controls.appendChild(selBtn);
+
+  let selectable = false;
+  const updateSelToolbar = () => {
+    toolbar.classList.toggle("show", selectable);
+    toolbar.querySelector(".count")!.textContent = `${selected.size} selected`;
+  };
+  selBtn.onclick = () => {
+    selectable = !selectable;
+    selBtn.textContent = selectable ? "Done selecting" : "Select";
+    selected.clear();
+    renderAll(latestItems);
+    updateSelToolbar();
+  };
+  (toolbar.querySelector("#selDelete") as HTMLButtonElement).onclick = () => {
+    [...selected].forEach((id) => deleteItem(id));
+    selected.clear();
+    renderAll(latestItems);
+    updateSelToolbar();
+  };
+  (toolbar.querySelector("#selCancel") as HTMLButtonElement).onclick = () => {
+    selectable = false;
+    selBtn.textContent = "Select";
+    selected.clear();
+    renderAll(latestItems);
+    updateSelToolbar();
+  };
+
   // Re-render immediately when a time/color setting changes so existing cards
   // and clock strings update without reloading.
   subscribeSettings(() => {
@@ -289,13 +328,14 @@ export function mountViews(): void {
     cTodo.textContent = String(todos.filter((i) => i.status !== "done").length || "");
     cDue.textContent = String(due.length || "");
 
-    schedList.innerHTML = events.length ? groupByDay(events) : `<div class="empty">Nothing scheduled. Speak or type to add one.</div>`;
-    vTodo.innerHTML = todos.length ? todos.map(cardHTML).join("") : `<div class="empty">No todos. Add one below.</div>`;
-    vDue.innerHTML = due.length ? due.map(cardHTML).join("") : `<div class="empty">Nothing due right now.</div>`;
+    schedList.innerHTML = events.length ? groupByDay(events, selectable) : `<div class="empty">Nothing scheduled. Speak or type to add one.</div>`;
+    vTodo.innerHTML = todos.length ? todos.map((i) => cardHTML(i, { selectable, selected: selected.has(i.id) })).join("") : `<div class="empty">No todos. Add one below.</div>`;
+    vDue.innerHTML = due.length ? due.map((i) => cardHTML(i, { selectable, selected: selected.has(i.id) })).join("") : `<div class="empty">Nothing due right now.</div>`;
 
-    bindCardEvents(schedList);
-    bindCardEvents(vTodo);
-    bindCardEvents(vDue);
+    const selCtx = { selected, onChange: updateSelToolbar };
+    bindCardEvents(schedList, undefined, selCtx);
+    bindCardEvents(vTodo, undefined, selCtx);
+    bindCardEvents(vDue, undefined, selCtx);
   }
 
   // --- Manual Schedule entry with a calendar popover + time picker ---

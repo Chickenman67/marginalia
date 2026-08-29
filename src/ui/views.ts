@@ -1,5 +1,5 @@
 import type { Item } from "../types";
-import { toggleDone, deleteItem } from "../store";
+import { toggleDone, deleteItem, reorder, togglePin } from "../store";
 import { colorFor, formatClock } from "../settings";
 
 export type SortMode = "manual" | "date" | "title" | "status";
@@ -46,13 +46,20 @@ export function clock(dt: string | null): string {
   return formatClock(dt);
 }
 
-export function cardHTML(i: Item): string {
+export function cardHTML(i: Item, opts: { selectable?: boolean; selected?: boolean } = {}): string {
   const isPast = i.kind === "event" && !!i.datetime && new Date(i.datetime) < new Date() && i.status !== "done";
   const time = i.kind === "event" && i.datetime ? (i.all_day ? "" : clock(i.datetime)) : "";
   const remind = i.reminder ? `<span class="remind">🔔 ${clock(i.reminder)}</span>` : "";
   const accent = colorFor(i.datetime || i.reminder);
   const accentAttr = accent ? ` data-accent="${accent}"` : "";
-  return `<div class="card ${i.status === "done" ? "done" : ""} ${isPast ? "past" : ""}" data-id="${i.id}"${accentAttr}>
+  const sel = opts.selectable
+    ? `<input type="checkbox" class="sel" ${opts.selected ? "checked" : ""} aria-label="Select ${esc(i.title)}" />`
+    : "";
+  const pin = `<button type="button" class="pin-btn ${i.pinned ? "on" : ""}" title="${i.pinned ? "Unpin" : "Pin"}">${i.pinned ? "📌" : "📍"}</button>`;
+  const handle = `<span class="drag-h" title="Drag to reorder" draggable="true">⠿</span>`;
+  return `<div class="card ${i.status === "done" ? "done" : ""} ${isPast ? "past" : ""} ${opts.selected ? "selected" : ""}" data-id="${i.id}"${accentAttr}>
+    ${handle}
+    ${sel}
     <input type="checkbox" class="check" ${i.status === "done" ? "checked" : ""} aria-label="Complete ${esc(i.title)}" />
     <div class="body">
       <div class="title">${esc(i.title)}</div>
@@ -63,11 +70,16 @@ export function cardHTML(i: Item): string {
         ${remind}
       </div>
     </div>
+    ${pin}
     <button class="del" title="Delete" aria-label="Delete ${esc(i.title)}">🗑</button>
   </div>`;
 }
 
-export function bindCardEvents(root: HTMLElement, onDelete: (id: string) => void = (id) => deleteItem(id)) {
+export function bindCardEvents(
+  root: HTMLElement,
+  onDelete: (id: string) => void = (id) => deleteItem(id),
+  selCtx?: { selected: Set<string>; onChange: () => void }
+) {
   // Accent border color is applied via the CSSOM (not an inline style attribute)
   // so it survives a strict Content-Security-Policy that forbids inline styles.
   root.querySelectorAll<HTMLElement>(".card[data-accent]").forEach((c) => {
@@ -85,9 +97,49 @@ export function bindCardEvents(root: HTMLElement, onDelete: (id: string) => void
       onDelete(id);
     };
   });
+  if (selCtx) {
+    root.querySelectorAll<HTMLInputElement>(".sel").forEach((c) => {
+      c.onchange = () => {
+        const id = (c.closest(".card") as HTMLElement).dataset.id!;
+        if (c.checked) selCtx.selected.add(id); else selCtx.selected.delete(id);
+        selCtx.onChange();
+      };
+    });
+    root.querySelectorAll<HTMLButtonElement>(".day-del").forEach((b) => {
+      b.onclick = () => {
+        const ids = (b.dataset.ids || "").split(",").filter(Boolean);
+        ids.forEach((id) => deleteItem(id));
+        selCtx.onChange();
+      };
+    });
+  }
+  // pin button + drag (available regardless of selection mode)
+  root.querySelectorAll<HTMLButtonElement>(".pin-btn").forEach((b) => {
+    b.onclick = () => {
+      const id = (b.closest(".card") as HTMLElement).dataset.id!;
+      togglePin(id);
+    };
+  });
+  root.querySelectorAll<HTMLElement>(".drag-h").forEach((h) => {
+    const card = h.closest(".card") as HTMLElement;
+    card.addEventListener("dragstart", () => card.classList.add("dragging"));
+    card.addEventListener("dragend", () => card.classList.remove("dragging"));
+    card.addEventListener("dragover", (e) => e.preventDefault());
+    card.addEventListener("drop", (e) => {
+      e.preventDefault();
+      const dragging = root.querySelector(".card.dragging") as HTMLElement | null;
+      if (!dragging || dragging === card) return;
+      const ids = [...root.querySelectorAll<HTMLElement>(".card")].map((c) => c.dataset.id!);
+      const from = ids.indexOf(dragging.dataset.id!);
+      const to = ids.indexOf(card.dataset.id!);
+      if (from < 0 || to < 0) return;
+      ids.splice(to, 0, ids.splice(from, 1)[0]);
+      reorder(ids);
+    });
+  });
 }
 
-export function groupByDay(items: Item[]): string {
+export function groupByDay(items: Item[], selectable = false): string {
   const groups: Record<string, Item[]> = {};
   let html = "";
   items.forEach((i) => {
@@ -95,7 +147,8 @@ export function groupByDay(items: Item[]): string {
     (groups[k] = groups[k] || []).push(i);
   });
   Object.keys(groups).forEach((k) => {
-    html += `<div class="day-label">${esc(k)}</div>` + groups[k].map(cardHTML).join("");
+    const ids = groups[k].map((i) => i.id).join(",");
+    html += `<div class="day-label">${esc(k)}${selectable ? `<button type="button" class="day-del" data-ids="${ids}">delete all</button>` : ""}</div>` + groups[k].map((i) => cardHTML(i, { selectable })).join("");
   });
   return html;
 }
