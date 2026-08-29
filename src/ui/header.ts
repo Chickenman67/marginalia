@@ -20,6 +20,16 @@ export function mountHeader(): void {
 
   // settings modal
   const back = document.getElementById("settingsModal")!;
+  const tabStrip = back.querySelector<HTMLElement>(".tab-strip")!;
+  const panels = Array.from(back.querySelectorAll<HTMLElement>(".spanel"));
+  tabStrip.querySelectorAll<HTMLButtonElement>(".stab").forEach((t) => {
+    t.onclick = () => {
+      tabStrip.querySelectorAll(".stab").forEach((x) => x.setAttribute("aria-selected", "false"));
+      t.setAttribute("aria-selected", "true");
+      const name = t.dataset.tab!;
+      panels.forEach((p) => (p.hidden = p.dataset.panel !== name));
+    };
+  });
   const apiKey = document.getElementById("apiKey") as HTMLInputElement;
   const provider = document.getElementById("provider") as HTMLSelectElement;
   const setAuto = document.getElementById("setAutoRemind") as HTMLInputElement;
@@ -63,6 +73,8 @@ export function mountHeader(): void {
     setAuto.checked = s.autoRemindEvents;
     setMilitary.checked = s.militaryTime;
     setNotify.checked = s.browserNotifications && typeof Notification !== "undefined" && Notification.permission === "granted";
+    (document.getElementById("setAutoDelete") as HTMLInputElement).checked = s.autoDelete;
+    (document.getElementById("autoDeleteDays") as HTMLInputElement).value = String(s.autoDeleteDays);
     keyStatus.textContent = "";
     keyStatus.className = "key-status";
     renderRules(s.colorRules);
@@ -76,6 +88,10 @@ export function mountHeader(): void {
     localStorage.setItem(STORAGE_KEYS.llmKey, apiKey.value.trim());
     localStorage.setItem(STORAGE_KEYS.provider, provider.value);
     updateSettings({ autoRemindEvents: setAuto.checked, militaryTime: setMilitary.checked, colorRules: readRules() });
+    updateSettings({
+      autoDelete: (document.getElementById("setAutoDelete") as HTMLInputElement).checked,
+      autoDeleteDays: Math.max(1, Number((document.getElementById("autoDeleteDays") as HTMLInputElement).value) || 30)
+    });
     if (setNotify.checked) {
       await enableNotifications();
     } else {
@@ -109,6 +125,12 @@ export function mountHeader(): void {
   // space management: single-click chip opens the token modal (copy / new / join)
   const tokenModal = document.getElementById("tokenModal")!;
   const tokenInput = document.getElementById("tokenInput") as HTMLInputElement;
+
+  back.addEventListener("click", (e) => { if (e.target === back) back.classList.remove("show"); });
+  tokenModal.addEventListener("click", (e) => { if (e.target === tokenModal) tokenModal.classList.remove("show"); });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { back.classList.remove("show"); tokenModal.classList.remove("show"); }
+  });
   chip.addEventListener("click", () => {
     tokenInput.value = getSpaceToken();
     tokenModal.classList.add("show");

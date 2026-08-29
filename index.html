@@ -87,44 +87,53 @@
   </div>
 
   <div class="back" id="settingsModal">
-    <div class="modal">
-      <h2>Settings</h2>
-      <p>Pick a provider. <b>NVIDIA</b> is free with no key (uses a shared proxy). Add a <b>Gemini</b> or <b>Groq</b> key for faster parsing.</p>
-      <select id="provider">
-        <option value="gemini">Gemini</option>
-        <option value="groq">Groq</option>
-        <option value="nvidia">NVIDIA (default, via proxy)</option>
-      </select>
-      <input id="apiKey" placeholder="Paste your API key" />
-      <div class="row key-row">
-        <button class="btn" id="keyTest" type="button">Test key</button>
-        <span id="keyStatus" class="key-status"></span>
+    <div class="modal settings">
+      <div class="tab-strip" role="tablist">
+        <button class="stab" data-tab="general" role="tab" aria-selected="true">General</button>
+        <button class="stab" data-tab="colors" role="tab" aria-selected="false">Colors</button>
+        <button class="stab" data-tab="backup" role="tab" aria-selected="false">Backup</button>
       </div>
-
-      <label class="toggle"><input type="checkbox" id="setAutoRemind" /> Remind me at each event's time</label>
-      <label class="toggle"><input type="checkbox" id="setNotify" /> Browser notifications (while app is open)</label>
-      <label class="toggle"><input type="checkbox" id="setMilitary" /> Use 24-hour (military) time</label>
-
-      <div class="rules-head">Color by due date <span class="muted">(most specific matching rule wins)</span></div>
-      <div id="colorRules"></div>
-      <button type="button" class="btn ghost" id="addRule">+ Add color rule</button>
-
-      <div class="rules-head">Backup</div>
-      <div class="row">
-        <button class="btn" id="exportCsv" type="button">Export CSV</button>
-        <button class="btn" id="exportText" type="button">Export text</button>
-      </div>
-      <label class="toggle">Import a backup file</label>
-      <input type="file" id="importFile" accept=".csv,.txt,text/plain" />
-      <div class="row" id="importMode" hidden>
-        <button class="btn" id="importMerge" type="button">Merge</button>
-        <button class="btn primary" id="importReplace" type="button">Replace</button>
-      </div>
-      <div class="key-status" id="backupStatus"></div>
-      <div class="row">
-        <button class="btn" id="settingsCancel">Close</button>
-        <button class="btn primary" id="settingsSave">Save</button>
-      </div>
+      <section class="spanel" data-panel="general">
+        <p>Pick a provider. <b>NVIDIA</b> is free with no key (uses a shared proxy). Add a <b>Gemini</b> or <b>Groq</b> key for faster parsing.</p>
+        <select id="provider">
+          <option value="gemini">Gemini</option>
+          <option value="groq">Groq</option>
+          <option value="nvidia">NVIDIA (default, via proxy)</option>
+        </select>
+        <input id="apiKey" placeholder="Paste your API key" />
+        <div class="row key-row">
+          <button class="btn" id="keyTest" type="button">Test key</button>
+          <span id="keyStatus" class="key-status"></span>
+        </div>
+        <label class="toggle"><input type="checkbox" id="setAutoRemind" /> Remind me at each event's time</label>
+        <label class="toggle"><input type="checkbox" id="setNotify" /> Browser notifications (while app is open)</label>
+        <label class="toggle"><input type="checkbox" id="setMilitary" /> Use 24-hour (military) time</label>
+        <label class="toggle"><input type="checkbox" id="setAutoDelete" /> Auto-delete past events</label>
+        <label class="toggle">Delete after <input type="number" id="autoDeleteDays" min="1" value="30" style="width:64px;margin:0 4px" /> days</label>
+        <div class="row">
+          <button class="btn" id="settingsCancel">Close</button>
+          <button class="btn primary" id="settingsSave">Save</button>
+        </div>
+      </section>
+      <section class="spanel" data-panel="colors" hidden>
+        <div class="rules-head">Color by due date <span class="muted">(most specific matching rule wins)</span></div>
+        <div id="colorRules"></div>
+        <button type="button" class="btn ghost" id="addRule">+ Add color rule</button>
+      </section>
+      <section class="spanel" data-panel="backup" hidden>
+        <div class="rules-head">Backup</div>
+        <div class="row">
+          <button class="btn" id="exportCsv" type="button">Export CSV</button>
+          <button class="btn" id="exportText" type="button">Export text</button>
+        </div>
+        <label class="toggle">Import a backup file</label>
+        <input type="file" id="importFile" accept=".csv,.txt,text/plain" />
+        <div class="row" id="importMode" hidden>
+          <button class="btn" id="importMerge" type="button">Merge</button>
+          <button class="btn primary" id="importReplace" type="button">Replace</button>
+        </div>
+        <div class="key-status" id="backupStatus"></div>
+      </section>
     </div>
   </div>
 
