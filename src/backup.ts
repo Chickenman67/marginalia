@@ -1,5 +1,6 @@
 import type { Item } from "./types";
 import { formatClock } from "./settings";
+import { importItems } from "./store";
 
 export interface ImportRow {
   kind: "todo" | "event";
@@ -63,6 +64,10 @@ export function toText(items: Item[]): string {
   parts.push("TODOS");
   parts.push(todos.length ? todos.map(line).join("\n") : "  (none)");
   return parts.join("\n");
+}
+
+export async function applyImport(rows: ImportRow[], mode: "merge" | "replace"): Promise<void> {
+  await importItems(rows, mode);
 }
 
 export function parseFile(text: string): ImportRow[] {
