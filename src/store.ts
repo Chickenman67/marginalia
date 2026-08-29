@@ -66,8 +66,11 @@ function persist() {
   if (isDemoMode) localStorage.setItem("marginalia.items", JSON.stringify(items));
 }
 
+function byOrder(a: Item, b: Item) {
+  return a.order - b.order || a.created_at.localeCompare(b.created_at);
+}
 export function setItems(next: Item[]) {
-  items = next.slice().sort(byCreated);
+  items = next.slice().sort(byOrder);
   emit();
   persist();
 }
@@ -86,7 +89,9 @@ export async function importItems(rows: ImportRow[], mode: "merge" | "replace"):
     all_day: r.all_day,
     reminder: r.reminder,
     status: r.status,
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
+    order: 0,
+    pinned: false
   });
 
   if (isDemoMode) {
@@ -142,7 +147,9 @@ export async function addItem(parsed: ParsedItem, _spaceToken: string): Promise<
     all_day: false,
     reminder: parsed.reminder,
     status: "pending",
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
+    order: Date.now(),
+    pinned: false
   };
   if (isDemoMode) {
     items = [...items, item].sort(byCreated);
@@ -182,6 +189,51 @@ export async function deleteItem(id: string): Promise<void> {
   emit();
 }
 
+export async function reorder(orderedIds: string[]): Promise<void> {
+  for (let i = 0; i < orderedIds.length; i++) {
+    const it = items.find((x) => x.id === orderedIds[i]);
+    if (!it || it.order === i) continue;
+    if (isDemoMode) {
+      items = items.map((x) => (x.id === orderedIds[i] ? { ...x, order: i } : x));
+    } else {
+      await updateItem(orderedIds[i], { order: i });
+    }
+  }
+  if (isDemoMode) { items.sort(byOrder); emit(); persist(); }
+  else { items.sort(byOrder); emit(); }
+}
+
+export async function togglePin(id: string): Promise<void> {
+  const it = items.find((x) => x.id === id);
+  if (!it) return;
+  const next = !it.pinned;
+  if (isDemoMode) {
+    items = items.map((x) => (x.id === id ? { ...x, pinned: next } : x));
+    emit(); persist();
+    return;
+  }
+  await updateItem(id, { pinned: next });
+  items = items.map((x) => (x.id === id ? { ...x, pinned: next } : x));
+  emit();
+}
+
+export async function deleteOldEvents(thresholdDays: number): Promise<void> {
+  const cutoff = Date.now() - thresholdDays * 864e5;
+  const toDelete = items.filter(
+    (i) => i.kind === "event" && !i.pinned && i.datetime && new Date(i.datetime).getTime() < cutoff
+  );
+  for (const it of toDelete) {
+    if (isDemoMode) {
+      items = items.filter((x) => x.id !== it.id);
+    } else {
+      await removeItem(it.id);
+      items = items.filter((x) => x.id !== it.id);
+    }
+  }
+  if (isDemoMode) { items.sort(byOrder); emit(); persist(); }
+  else emit();
+}
+
 // --- realtime hookup (no-op in demo mode) ---
 export async function subscribeRealtime(): Promise<void> {
   if (isDemoMode) return;
@@ -213,7 +265,9 @@ function mk(title: string, kind: "todo" | "event", datetime: string | null, spac
     all_day: false,
     reminder: datetime,
     status,
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
+    order: 0,
+    pinned: false
   };
 }
 
