@@ -11,6 +11,3 @@ scripts/sdd.ps1
 
 # stray TS compile output (build uses tsc --noEmit)
 src/**/*.js
-
-
-
