@@ -1,16 +1,28 @@
 import { isDemoMode } from "../config";
-import { addItem, getSpaceId, getSpaceToken, subscribe, deleteItem } from "../store";
-import { parsePhrase, polishPhrase } from "../supabase";
+import { addItem, getSpaceId, getSpaceToken, subscribe, deleteItem, setItems } from "../store";
+import { parsePhrase, polishPhrase, updateItem } from "../supabase";
 import { createSpeech } from "../speech";
-import { cardHTML, bindCardEvents, groupByDay, esc, applyView, type ViewState, type SortMode } from "./views";
+import { cardHTML, bindCardEvents, groupByDay, esc, applyViewV2, starHTML, type ScheduleState, type TodosState, type DueState } from "./views";
+import { mountFilterPanel } from "./filterPanel";
 import { openCalendar, openTimePicker } from "./calendar";
-import { dueItems } from "../reminders";
 import { getSettings, formatClock, subscribeSettings } from "../settings";
 import type { Item, ParsedItem, DraftItem, PolishResult } from "../types";
 
 function el<T extends HTMLElement>(sel: string): T { return document.querySelector(sel) as T; }
 
 let draft: ParsedItem | null = null;
+
+function showNotice(msg: string) {
+  const hint = el<HTMLDivElement>("#hint");
+  if (!hint) return;
+  const orig = hint.innerHTML;
+  hint.textContent = msg;
+  hint.classList.add("notice");
+  window.setTimeout(() => {
+    hint.innerHTML = orig;
+    hint.classList.remove("notice");
+  }, 4000);
+}
 
 export function mountInput(): void {
   const phraseEl = el<HTMLInputElement>("#phrase");
@@ -162,16 +174,6 @@ export function mountInput(): void {
     currentDraft = [];
     dictateToggle.click();
   }
-
-  const hintDefault = hint.innerHTML;
-  function showNotice(msg: string) {
-    hint.textContent = msg;
-    hint.classList.add("notice");
-    window.setTimeout(() => {
-      hint.innerHTML = hintDefault;
-      hint.classList.remove("notice");
-    }, 4000);
-  }
 }
 
 // Lightweight local guess so the UI is responsive before/without the LLM call.
@@ -230,87 +232,100 @@ export function mountViews(): void {
     };
   });
 
-  // viewState / controls / selection state must be initialized BEFORE the
-  // store subscribe call: store.subscribe() fires its callback synchronously
-  // on registration, and renderAll() reads these via closure. Declaring them
-  // after subscribe() would hit a TDZ ReferenceError, abort mountViews, and
-  // leave the manual event form (date/time/Add) un-wired.
-  const viewState: ViewState = { search: "", status: "all", sort: "manual" };
-  const controls = document.createElement("div");
-  controls.className = "list-controls";
-  controls.innerHTML = `
-    <input type="search" class="grow" id="lvSearch" placeholder="Search titles…" aria-label="Search" />
-    <select id="lvStatus" aria-label="Filter by status">
-      <option value="all">All</option><option value="pending">Pending</option><option value="done">Done</option>
-    </select>
-    <select id="lvSort" class="sort" aria-label="Sort">
-      <option value="manual">Manual</option>
-      <option value="date">By date</option>
-      <option value="title">By title</option>
-      <option value="status">By status</option>
-    </select>`;
-  vSched.parentElement?.insertBefore(controls, vSched);
-  (document.getElementById("lvSearch") as HTMLInputElement).addEventListener("input", (e) => {
-    viewState.search = (e.target as HTMLInputElement).value;
-    renderAll(latestItems);
-  });
-  (document.getElementById("lvStatus") as HTMLSelectElement).addEventListener("change", (e) => {
-    viewState.status = (e.target as HTMLSelectElement).value as ViewState["status"];
-    renderAll(latestItems);
-  });
-  (document.getElementById("lvSort") as HTMLSelectElement).addEventListener("change", (e) => {
-    viewState.sort = (e.target as HTMLSelectElement).value as SortMode;
-    renderAll(latestItems);
-  });
+  // Per-view state (initial defaults; user changes flow through onChange).
+  const scheduleState: ScheduleState = { search: "", filters: { timeRange: "all", status: "all" }, sort: "date", dir: "asc" };
+  const todosState: TodosState = { search: "", filters: { priority: "all", status: "all" }, sort: "priority", dir: "desc" };
+  const dueState: DueState = { search: "", filters: { dueWindow: "now", kind: "all" }, sort: "date", dir: "asc" };
 
+  // Inject a filter pill + panel into each view (the panel is the host's first child)
+  mountFilterPanel({ viewKey: "schedule", initial: scheduleState, host: vSched, onChange: (s) => { Object.assign(scheduleState, s); renderAll(latestItems); } });
+  mountFilterPanel({ viewKey: "todos", initial: todosState, host: vTodo, onChange: (s) => { Object.assign(todosState, s); renderAll(latestItems); } });
+  mountFilterPanel({ viewKey: "due", initial: dueState, host: vDue, onChange: (s) => { Object.assign(dueState, s); renderAll(latestItems); } });
+
+  // Selection mode
   const selected = new Set<string>();
   const toolbar = document.createElement("div");
   toolbar.className = "sel-toolbar";
   toolbar.innerHTML = `<span class="count">0 selected</span>
-    <button class="btn" id="selDelete" type="button">Delete selected</button>
+    <span class="bulk-delete-wrap">
+      <button class="btn bulk-delete-btn" id="selDelete" type="button">Delete selected (0) ▾</button>
+    </span>
     <button class="btn" id="selCancel" type="button">Cancel</button>`;
-  vSched.parentElement?.insertBefore(toolbar, controls);
+  document.body.appendChild(toolbar);
   const selBtn = document.createElement("button");
   selBtn.className = "btn toggle";
   selBtn.id = "selMode";
   selBtn.textContent = "Select";
-  controls.appendChild(selBtn);
-
+  // Attach Select button into each panel's sort row so it follows the pill
+  document.querySelectorAll(".filter-panel .sort-row").forEach((row) => {
+    const clone = selBtn.cloneNode(true) as HTMLButtonElement;
+    clone.id = "";
+    row.appendChild(clone);
+    clone.onclick = () => selBtn.click();
+  });
+  // One canonical handler that all clones share via delegation
   let selectable = false;
   const updateSelToolbar = () => {
     toolbar.classList.toggle("show", selectable);
     toolbar.querySelector(".count")!.textContent = `${selected.size} selected`;
+    toolbar.querySelector("#selDelete")!.textContent = `Delete selected (${selected.size}) ▾`;
   };
-  selBtn.onclick = () => {
+  const toggleSelect = () => {
     selectable = !selectable;
+    selected.clear();
     selBtn.textContent = selectable ? "Done selecting" : "Select";
-    selected.clear();
+    document.querySelectorAll<HTMLButtonElement>(".filter-panel .sort-row button.toggle").forEach((b) => {
+      b.textContent = selectable ? "Done selecting" : "Select";
+    });
     renderAll(latestItems);
     updateSelToolbar();
   };
-  (toolbar.querySelector("#selDelete") as HTMLButtonElement).onclick = () => {
-    [...selected].forEach((id) => deleteItem(id));
-    selected.clear();
-    renderAll(latestItems);
-    updateSelToolbar();
-  };
-  (toolbar.querySelector("#selCancel") as HTMLButtonElement).onclick = () => {
+  selBtn.onclick = toggleSelect;
+  toolbar.querySelector("#selCancel")!.addEventListener("click", () => {
     selectable = false;
-    selBtn.textContent = "Select";
     selected.clear();
+    selBtn.textContent = "Select";
     renderAll(latestItems);
     updateSelToolbar();
-  };
+  });
+  // Bulk delete dropdown
+  const deleteBtn = toolbar.querySelector<HTMLButtonElement>("#selDelete")!;
+  let popOpen = false;
+  const closePop = () => { popOpen = false; existingPop?.remove(); existingPop = null; };
+  let existingPop: HTMLElement | null = null;
+  deleteBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (popOpen) { closePop(); return; }
+    popOpen = true;
+    const pop = document.createElement("div");
+    pop.className = "bulk-delete-pop";
+    pop.innerHTML = `
+      <button type="button" class="danger" data-act="go">Delete ${selected.size} item${selected.size === 1 ? "" : "s"}</button>
+      <button type="button" data-act="cancel">Cancel</button>
+    `;
+    deleteBtn.parentElement!.appendChild(pop);
+    existingPop = pop;
+    pop.querySelector<HTMLButtonElement>("[data-act='go']")!.onclick = () => {
+      [...selected].forEach((id) => deleteItem(id));
+      selected.clear();
+      closePop();
+      selectable = false;
+      selBtn.textContent = "Select";
+      renderAll(latestItems);
+      updateSelToolbar();
+    };
+    pop.querySelector<HTMLButtonElement>("[data-act='cancel']")!.onclick = closePop;
+  });
+  document.addEventListener("click", (e) => {
+    if (popOpen && existingPop && !existingPop.contains(e.target as Node) && !deleteBtn.contains(e.target as Node)) closePop();
+  });
 
   let latestItems: Item[] = [];
   subscribe((items: Item[]) => { latestItems = items; renderAll(items); });
 
-  // Re-render immediately when a time/color setting changes so existing cards
-  // and clock strings update without reloading.
   subscribeSettings(() => {
     renderAll(latestItems);
     syncTimeTrigger();
-    // refresh the live preview box (shown before adding) so its clock matches the new 24h setting
     const pBox = el<HTMLDivElement>("#preview");
     const pText = el<HTMLSpanElement>("#previewText");
     const phrase = el<HTMLInputElement>("#phrase");
@@ -325,64 +340,118 @@ export function mountViews(): void {
   });
 
   function renderAll(items: Item[]) {
-    const events = applyView(items.filter((i) => i.kind === "event"), viewState);
-    const todos = applyView(items.filter((i) => i.kind === "todo"), viewState);
-    const due = dueItems(items);
+    const events = applyViewV2(items.filter((i) => i.kind === "event"), scheduleState);
+    const todos = applyViewV2(items.filter((i) => i.kind === "todo"), todosState);
+    // For the due view, the spec excludes done items; apply that here:
+    const dueNotDone = items.filter((i) => i.status !== "done" && i.reminder);
+    const dueShown = applyViewV2(dueNotDone, dueState);
 
     cSched.textContent = String(events.filter((i) => i.status !== "done").length || "");
     cTodo.textContent = String(todos.filter((i) => i.status !== "done").length || "");
-    cDue.textContent = String(due.length || "");
+    cDue.textContent = String(dueShown.length || "");
 
     schedList.innerHTML = events.length ? groupByDay(events, selectable) : `<div class="empty">Nothing scheduled. Speak or type to add one.</div>`;
-    vTodo.innerHTML = todos.length ? todos.map((i) => cardHTML(i, { selectable, selected: selected.has(i.id) })).join("") : `<div class="empty">No todos. Add one below.</div>`;
-    vDue.innerHTML = due.length ? due.map((i) => cardHTML(i, { selectable, selected: selected.has(i.id) })).join("") : `<div class="empty">Nothing due right now.</div>`;
+    vTodo.innerHTML = todos.length ? todos.map((i) => cardHTML(i, { selectable, selected: selected.has(i.id), showPin: false })).join("") : `<div class="empty">No todos. Add one below.</div>`;
+    vDue.innerHTML = dueShown.length ? dueShown.map((i) => cardHTML(i, { selectable, selected: selected.has(i.id), showPin: i.kind === "event" })).join("") : `<div class="empty">Nothing due right now.</div>`;
+
+    // Inject stars under each todo card's meta row
+    document.querySelectorAll<HTMLElement>("#view-todos .card").forEach((card) => {
+      const id = card.dataset.id!;
+      const item = todos.find((i) => i.id === id);
+      if (!item) return;
+      const meta = card.querySelector(".meta");
+      if (meta && !meta.querySelector(".stars")) {
+        meta.insertAdjacentHTML("beforeend", `<span style="display:inline-block;width:8px"></span>${starHTML(item.rating, id)}`);
+      }
+    });
 
     const selCtx = { selected, onChange: updateSelToolbar };
     bindCardEvents(schedList, undefined, selCtx);
     bindCardEvents(vTodo, undefined, selCtx);
     bindCardEvents(vDue, undefined, selCtx);
+    bindStarEvents(vTodo, latestItems);
   }
+}
 
-  // --- Manual Schedule entry with a calendar popover + time picker ---
-  const form = el<HTMLFormElement>("#addEvent");
-  const dateTrigger = el<HTMLButtonElement>("#evDate");
-  const timeTrigger = el<HTMLButtonElement>("#evTimeTrigger");
-  const allDayInp = el<HTMLInputElement>("#evAllDay");
-  let pickedDate = new Date().toISOString().slice(0, 10);
-  let pickedTime = "";
-  const fmtDate = (iso: string) => new Date(iso + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-  dateTrigger.textContent = fmtDate(pickedDate);
-  dateTrigger.onclick = () => openCalendar(dateTrigger, pickedDate, (iso) => {
-    pickedDate = iso;
-    dateTrigger.textContent = fmtDate(iso);
+// --- Manual Schedule entry with a calendar popover + time picker ---
+const form = el<HTMLFormElement>("#addEvent");
+const dateTrigger = el<HTMLButtonElement>("#evDate");
+const timeTrigger = el<HTMLButtonElement>("#evTimeTrigger");
+const allDayInp = el<HTMLInputElement>("#evAllDay");
+let pickedDate = new Date().toISOString().slice(0, 10);
+let pickedTime = "";
+const fmtDate = (iso: string) => new Date(iso + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+dateTrigger.textContent = fmtDate(pickedDate);
+dateTrigger.onclick = () => openCalendar(dateTrigger, pickedDate, (iso) => {
+  pickedDate = iso;
+  dateTrigger.textContent = fmtDate(iso);
+});
+const syncTimeTrigger = () => {
+  if (allDayInp.checked) { timeTrigger.textContent = "All day"; return; }
+  if (!pickedTime) { timeTrigger.textContent = "Time"; return; }
+  const [hh, mm] = pickedTime.split(":").map(Number);
+  timeTrigger.textContent = getSettings().militaryTime
+    ? pickedTime
+    : `${String(((hh + 11) % 12) + 1).padStart(2, "0")}:${String(mm).padStart(2, "0")} ${hh >= 12 ? "PM" : "AM"}`;
+};
+timeTrigger.onclick = () => {
+  if (allDayInp.checked) return;
+  (window as any).__marginaliaMilitary = getSettings().militaryTime;
+  openTimePicker(timeTrigger, pickedTime || "09:00", (t) => { pickedTime = t; syncTimeTrigger(); });
+};
+allDayInp.onchange = syncTimeTrigger;
+syncTimeTrigger();
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const title = el<HTMLInputElement>("#evTitle").value.trim();
+  if (!title) return;
+  const allDay = allDayInp.checked;
+  const when = allDay ? `${pickedDate}T00:00:00` : `${pickedDate}T${pickedTime || "09:00"}:00`;
+  const iso = localToISO(when);
+  if (!iso) return;
+  await addItem({ title, kind: "event", datetime: iso, reminder: iso }, getSpaceId());
+  el<HTMLInputElement>("#evTitle").value = "";
+});
+
+async function setRating(id: string, rating: number, items: Item[]) {
+  const it = items.find((x) => x.id === id);
+  if (!it) return;
+  const previous = it.rating;
+  // Optimistic UI update
+  const local = items.map((x) => (x.id === id ? { ...x, rating } : x));
+  try {
+    if (!isDemoMode) {
+      await updateItem(id, { rating });
+    } else {
+      setItems(local);
+    }
+  } catch (err) {
+    // Rollback path is approximate: by the time we run, the store may already
+    // have a newer emit. This re-emits the original list with the previous
+    // rating restored. In demo mode it works; in synced mode the user may
+    // briefly see the old rating come back. Acceptable for now.
+    setItems(items.map((x) => (x.id === id ? { ...x, rating: previous } : x)));
+    showNotice("Couldn't save rating — try again.");
+  }
+}
+
+function bindStarEvents(host: HTMLElement, items: Item[]) {
+  host.querySelectorAll<HTMLElement>(".stars").forEach((row) => {
+    row.querySelectorAll<HTMLElement>(".star").forEach((starEl) => {
+      starEl.addEventListener("click", async (e) => {
+        if (host.querySelector(".card.selected")) return; // selection mode
+        e.stopPropagation();
+        const id = row.dataset.item!;
+        const value = Number(starEl.dataset.value);
+        const it = items.find((x) => x.id === id);
+        if (!it) return;
+        // The data-value already encodes half vs whole: 2.5 means half, 3 means whole.
+        // Toggle: same value → clear to 0
+        if ((e as MouseEvent).shiftKey) { await setRating(id, 0, items); return; }
+        if (it.rating === value) { await setRating(id, 0, items); return; }
+        await setRating(id, value, items);
+      });
+    });
   });
-  const syncTimeTrigger = () => {
-    if (allDayInp.checked) { timeTrigger.textContent = "All day"; return; }
-    if (!pickedTime) { timeTrigger.textContent = "Time"; return; }
-    const [hh, mm] = pickedTime.split(":").map(Number);
-    timeTrigger.textContent = getSettings().militaryTime
-      ? pickedTime
-      : `${String(((hh + 11) % 12) + 1).padStart(2, "0")}:${String(mm).padStart(2, "0")} ${hh >= 12 ? "PM" : "AM"}`;
-  };
-  timeTrigger.onclick = () => {
-    if (allDayInp.checked) return;
-    (window as any).__marginaliaMilitary = getSettings().militaryTime;
-    openTimePicker(timeTrigger, pickedTime || "09:00", (t) => { pickedTime = t; syncTimeTrigger(); });
-  };
-  allDayInp.onchange = syncTimeTrigger;
-  syncTimeTrigger();
-
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const title = el<HTMLInputElement>("#evTitle").value.trim();
-    if (!title) return;
-    const allDay = allDayInp.checked;
-    const when = allDay ? `${pickedDate}T00:00:00` : `${pickedDate}T${pickedTime || "09:00"}:00`;
-    const iso = localToISO(when);
-    if (!iso) return;
-    await addItem({ title, kind: "event", datetime: iso, reminder: iso }, getSpaceId());
-    el<HTMLInputElement>("#evTitle").value = "";
-  });
-
-  void isDemoMode;
 }
