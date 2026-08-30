@@ -364,6 +364,16 @@ main { flex: 1; padding: 18px 22px 150px; }
 .filter-panel .sort-row .reverse:hover { border-color: var(--ink); }
 .filter-panel .sort-row .label { font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--faint); margin-right: auto; }
 
+.filter-panel .reset {
+  align-self: flex-start;
+  appearance: none; border: 1px solid var(--line); background: var(--paper);
+  color: var(--muted); padding: 6px 12px; border-radius: 999px;
+  font: inherit; font-size: 12.5px; cursor: pointer;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.filter-panel .reset:hover { color: var(--ink); border-color: var(--line-strong); background: var(--panel); }
+.filter-panel .reset:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
 /* bulk delete dropdown */
 .bulk-delete-wrap { position: relative; display: inline-flex; }
 .bulk-delete-pop {
