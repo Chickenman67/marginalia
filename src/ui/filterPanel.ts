@@ -178,10 +178,10 @@ export function mountFilterPanel(opts: {
   }
 
   function refreshPill() {
-    const dirty = !isDefault(state, viewKey);
-    pill.querySelector(".dot")!.toggleAttribute("hidden", !dirty);
+    const atDefaults = isDefault(state, viewKey);
+    pill.querySelector<HTMLElement>(".dot")!.hidden = atDefaults;
     const resetBtn = panel.querySelector<HTMLButtonElement>(".reset");
-    if (resetBtn) resetBtn.hidden = !dirty;
+    if (resetBtn) resetBtn.hidden = atDefaults;
   }
 
   function setOpen(v: boolean) {
