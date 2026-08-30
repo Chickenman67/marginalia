@@ -179,7 +179,7 @@ export function mountFilterPanel(opts: {
 
   function refreshPill() {
     const dirty = !isDefault(state, viewKey);
-    pill.querySelector(".dot")!.toggleAttribute("hidden", dirty);
+    pill.querySelector(".dot")!.toggleAttribute("hidden", !dirty);
     const resetBtn = panel.querySelector<HTMLButtonElement>(".reset");
     if (resetBtn) resetBtn.hidden = !dirty;
   }
