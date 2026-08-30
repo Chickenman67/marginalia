@@ -143,7 +143,8 @@ export function mountFilterPanel(opts: {
     panel.querySelectorAll<HTMLDivElement>(".chips").forEach((row) => {
       const key = row.dataset.key!;
       row.querySelectorAll<HTMLButtonElement>(".chip").forEach((chip) => {
-        chip.onclick = () => {
+        chip.onclick = (e) => {
+          e.stopPropagation();
           (state.filters as any)[key] = chip.dataset.value;
           drawPanel();
           emit();
@@ -157,12 +158,14 @@ export function mountFilterPanel(opts: {
       state.dir = d as Dir;
       emit();
     };
-    panel.querySelector<HTMLButtonElement>(".reverse")!.onclick = () => {
+    panel.querySelector<HTMLButtonElement>(".reverse")!.onclick = (e) => {
+      e.stopPropagation();
       state.dir = state.dir === "asc" ? "desc" : "asc";
       drawPanel();
       emit();
     };
-    panel.querySelector<HTMLButtonElement>(".reset")!.onclick = () => {
+    panel.querySelector<HTMLButtonElement>(".reset")!.onclick = (e) => {
+      e.stopPropagation();
       state = JSON.parse(JSON.stringify(DEFAULTS[viewKey]));
       drawPanel();
       emit();
