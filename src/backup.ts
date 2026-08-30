@@ -9,6 +9,7 @@ export interface ImportRow {
   all_day: boolean;
   reminder: string | null;
   status: "pending" | "done";
+  rating: number;
 }
 
 export function download(content: string, filename: string, mime: string): void {
@@ -33,10 +34,17 @@ function csvCell(v: string | null): string {
   return v;
 }
 
+function clampRating(raw: string): number {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return 0;
+  const clamped = Math.max(0, Math.min(5, n));
+  return Math.round(clamped * 2) / 2;
+}
+
 export function toCSV(items: Item[]): string {
-  const header = "kind,title,datetime,all_day,reminder,status,created_at";
+  const header = "kind,title,datetime,all_day,reminder,status,created_at,rating";
   const lines = items.map((i) =>
-    [i.kind, i.title, i.datetime, String(i.all_day), i.reminder, i.status, i.created_at]
+    [i.kind, i.title, i.datetime, String(i.all_day), i.reminder, i.status, i.created_at, String(i.rating)]
       .map((c) => csvCell(c === null ? null : String(c)))
       .join(",")
   );
@@ -83,7 +91,7 @@ function parseCsv(text: string): ImportRow[] {
   for (const row of rows) {
     const cols = splitCsvRow(row);
     if (cols.length < 2) continue;
-    const [kind, title, datetime, all_day, reminder, status] = cols;
+    const [kind, title, datetime, all_day, reminder, status, , ratingRaw] = cols;
     if (kind !== "event" && kind !== "todo") continue;
     out.push({
       kind,
@@ -91,7 +99,8 @@ function parseCsv(text: string): ImportRow[] {
       datetime: datetime || null,
       all_day: all_day === "true",
       reminder: reminder || null,
-      status: status === "done" ? "done" : "pending"
+      status: status === "done" ? "done" : "pending",
+      rating: clampRating(ratingRaw === undefined ? "0" : ratingRaw)
     });
   }
   return out;
@@ -142,7 +151,8 @@ function parseText(text: string): ImportRow[] {
       datetime,
       all_day: false,
       reminder: datetime,
-      status
+      status,
+      rating: 0
     });
   }
   return out;

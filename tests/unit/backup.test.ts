@@ -14,7 +14,7 @@ function mk(p: Partial<Item>): Item {
 describe("toCSV", () => {
   it("emits a quoted header and one row per item, quoting commas", () => {
     const csv = toCSV([mk({ title: "Call, mom" })]);
-    expect(csv.split("\n")[0]).toBe("kind,title,datetime,all_day,reminder,status,created_at");
+    expect(csv.split("\n")[0]).toBe("kind,title,datetime,all_day,reminder,status,created_at,rating");
     expect(csv).toContain('"Call, mom"');
   });
 });
