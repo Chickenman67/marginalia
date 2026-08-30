@@ -91,7 +91,8 @@ export async function importItems(rows: ImportRow[], mode: "merge" | "replace"):
     status: r.status,
     created_at: new Date().toISOString(),
     order: 0,
-    pinned: false
+    pinned: false,
+    rating: 0
   });
 
   if (isDemoMode) {
@@ -149,7 +150,8 @@ export async function addItem(parsed: ParsedItem, _spaceToken: string): Promise<
     status: "pending",
     created_at: new Date().toISOString(),
     order: Date.now(),
-    pinned: false
+    pinned: false,
+    rating: 0
   };
   if (isDemoMode) {
     items = [...items, item].sort(byCreated);
@@ -267,7 +269,8 @@ function mk(title: string, kind: "todo" | "event", datetime: string | null, spac
     status,
     created_at: new Date().toISOString(),
     order: 0,
-    pinned: false
+    pinned: false,
+    rating: 0
   };
 }
 
