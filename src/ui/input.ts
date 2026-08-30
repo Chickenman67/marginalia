@@ -2,7 +2,7 @@ import { isDemoMode } from "../config";
 import { addItem, getSpaceId, getSpaceToken, subscribe, deleteItem, setItems } from "../store";
 import { parsePhrase, polishPhrase, updateItem } from "../supabase";
 import { createSpeech } from "../speech";
-import { cardHTML, bindCardEvents, groupByDay, esc, applyViewV2, starHTML, type ScheduleState, type TodosState, type DueState } from "./views";
+import { cardHTML, bindCardEvents, groupByDay, esc, applyViewV2, starHTML, starClickValue, type ScheduleState, type TodosState, type DueState } from "./views";
 import { mountFilterPanel } from "./filterPanel";
 import { openCalendar, openTimePicker } from "./calendar";
 import { getSettings, formatClock, subscribeSettings } from "../settings";
@@ -443,14 +443,13 @@ function bindStarEvents(host: HTMLElement, items: Item[]) {
         if (host.querySelector(".card.selected")) return; // selection mode
         e.stopPropagation();
         const id = row.dataset.item!;
-        const value = Number(starEl.dataset.value);
+        const pos = Number(starEl.dataset.pos);
         const it = items.find((x) => x.id === id);
         if (!it) return;
-        // The data-value already encodes half vs whole: 2.5 means half, 3 means whole.
-        // Toggle: same value → clear to 0
-        if ((e as MouseEvent).shiftKey) { await setRating(id, 0, items); return; }
-        if (it.rating === value) { await setRating(id, 0, items); return; }
-        await setRating(id, value, items);
+        const zone: "half" | "whole" = (e as MouseEvent).offsetX < starEl.clientWidth / 2 ? "half" : "whole";
+        const next = starClickValue(pos, zone, it.rating, (e as MouseEvent).shiftKey);
+        if (next === it.rating) return;
+        await setRating(id, next, items);
       });
     });
   });

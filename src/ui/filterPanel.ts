@@ -3,7 +3,7 @@ import { esc } from "./views";
 
 type AnyState = ScheduleState | TodosState | DueState;
 type ChipsDef = { row: string; key: string; options: { value: string; label: string }[] };
-type SortOpt = { value: string; label: string };
+type SortOpt = { value: string; label: string; dir: "asc" | "desc" };
 
 const DEFAULTS: Record<string, AnyState> = {
   schedule: { search: "", filters: { timeRange: "all", status: "all" }, sort: "date", dir: "asc" },
@@ -56,26 +56,26 @@ const CHIPS: Record<string, ChipsDef[]> = {
 
 const SORT_OPTIONS: Record<string, SortOpt[]> = {
   schedule: [
-    { value: "date", label: "By date ↑ (soonest)" },
-    { value: "date", label: "By date ↓ (latest)" },
-    { value: "title", label: "By title A→Z" },
-    { value: "title", label: "By title Z→A" },
-    { value: "manual", label: "Manual" }
+    { value: "date", label: "By date ↑ (soonest)", dir: "asc" },
+    { value: "date", label: "By date ↓ (latest)", dir: "desc" },
+    { value: "title", label: "By title A→Z", dir: "asc" },
+    { value: "title", label: "By title Z→A", dir: "desc" },
+    { value: "manual", label: "Manual", dir: "asc" }
   ],
   todos: [
-    { value: "priority", label: "By priority ★5 → ★0" },
-    { value: "priority", label: "By priority ★0 → ★5" },
-    { value: "date", label: "By date created ↑" },
-    { value: "date", label: "By date created ↓" },
-    { value: "title", label: "By title A→Z" },
-    { value: "title", label: "By title Z→A" },
-    { value: "manual", label: "Manual" }
+    { value: "priority", label: "By priority ★5 → ★0", dir: "desc" },
+    { value: "priority", label: "By priority ★0 → ★5", dir: "asc" },
+    { value: "date", label: "By date created ↑", dir: "asc" },
+    { value: "date", label: "By date created ↓", dir: "desc" },
+    { value: "title", label: "By title A→Z", dir: "asc" },
+    { value: "title", label: "By title Z→A", dir: "desc" },
+    { value: "manual", label: "Manual", dir: "asc" }
   ],
   due: [
-    { value: "date", label: "By date ↑" },
-    { value: "date", label: "By date ↓" },
-    { value: "title", label: "By title A→Z" },
-    { value: "title", label: "By title Z→A" }
+    { value: "date", label: "By date ↑", dir: "asc" },
+    { value: "date", label: "By date ↓", dir: "desc" },
+    { value: "title", label: "By title A→Z", dir: "asc" },
+    { value: "title", label: "By title Z→A", dir: "desc" }
   ]
 };
 
@@ -113,7 +113,7 @@ export function mountFilterPanel(opts: {
     const sortValue = `${state.sort}|${dirKey}`;
     const sortOptionsHTML = sorts
       .map((s) => {
-        const compositeValue = `${s.value}|${s.label.includes("↓") || s.label.includes("Z→A") || s.label.includes("★0 →") ? "desc" : "asc"}`;
+        const compositeValue = `${s.value}|${s.dir}`;
         return `<option value="${esc(compositeValue)}" ${compositeValue === sortValue ? "selected" : ""}>${esc(s.label)}</option>`;
       })
       .join("");
