@@ -229,19 +229,20 @@ export function cardHTML(i: Item, opts: { selectable?: boolean; selected?: boole
 }
 
 function todoCardHTML(i: Item, opts: { selectable?: boolean; selected?: boolean }): string {
-  const isPast = false;
   const accent = colorFor(i.datetime || i.reminder);
   const accentAttr = accent ? ` data-accent="${accent}"` : "";
   const sel = opts.selectable
     ? `<input type="checkbox" class="sel" ${opts.selected ? "checked" : ""} aria-label="Select ${esc(i.title)}" />`
     : "";
-  return `<div class="card todo ${i.status === "done" ? "done" : ""} ${isPast ? "past" : ""} ${opts.selected ? "selected" : ""}" data-id="${i.id}"${accentAttr}>
+  return `<div class="card todo ${i.status === "done" ? "done" : ""} ${opts.selected ? "selected" : ""}" data-id="${i.id}"${accentAttr}>
     ${sel}
     <input type="checkbox" class="check" ${i.status === "done" ? "checked" : ""} aria-label="Complete ${esc(i.title)}" />
     <div class="body">
       <div class="title">${esc(i.title)}</div>
-      <span class="badge todo">todo</span>
-      ${starHTML(i.rating, i.id)}
+      <div class="meta">
+        <span class="badge todo">todo</span>
+        ${starHTML(i.rating, i.id)}
+      </div>
     </div>
     <button class="del" title="Delete" aria-label="Delete ${esc(i.title)}">🗑</button>
   </div>`;
