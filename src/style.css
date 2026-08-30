@@ -340,6 +340,7 @@ main { flex: 1; padding: 18px 22px 150px; }
   background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow);
   padding: 14px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 12px;
 }
+.filter-panel[hidden] { display: none; }
 .filter-panel .search { width: 100%; }
 .filter-panel .search input {
   width: 100%; padding: 8px 10px; border: 1px solid var(--line-strong); background: var(--paper);
