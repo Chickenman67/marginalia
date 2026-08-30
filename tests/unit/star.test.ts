@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { starHTML, starSymbolHTML } from "../../src/ui/views";
+import { STAR_EMPTY_FILL } from "../../src/ui/views";
 
 function countOccurrences(haystack: string, needle: string): number {
   return haystack.split(needle).length - 1;
@@ -62,5 +63,25 @@ describe("starSymbolHTML", () => {
   it("returns a <symbol> with id=starShape", () => {
     expect(starSymbolHTML()).toContain("id=\"starShape\"");
     expect(starSymbolHTML()).toContain("<symbol");
+  });
+});
+
+describe("starHTML — visible empty fill", () => {
+  it("renders empty stars using STAR_EMPTY_FILL (not the old near-white cream)", () => {
+    const h = starHTML(0, "x");
+    expect(h).toContain(`fill="${STAR_EMPTY_FILL}"`);
+    expect(h).not.toContain("#fff8d6");
+  });
+
+  it("renders half stars with STAR_EMPTY_FILL as the underlying base", () => {
+    const h = starHTML(2.5, "x");
+    expect(h).toContain(`fill="${STAR_EMPTY_FILL}"`);
+    expect(h).not.toContain("#fff8d6");
+  });
+
+  it("uses the bumped stroke-width 1.6 on empty stars", () => {
+    const h = starHTML(0, "x");
+    expect(h).toContain('stroke-width="1.6"');
+    expect(h).not.toContain('stroke-width="1.4"');
   });
 });
