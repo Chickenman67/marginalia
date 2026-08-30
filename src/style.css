@@ -391,10 +391,8 @@ main { flex: 1; padding: 18px 22px 150px; }
 .view-bar .filter-pill { align-self: flex-end; }
 .view-bar .filter-panel { width: 100%; margin-bottom: 0; }
 
-/* compact todo card */
-.card.todo { padding: 8px 14px; align-items: center; }
-.card.todo .body { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.card.todo .title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.card.todo .badge.todo { order: 1; }
-.card.todo .stars { order: 2; flex: none; }
-.card.todo .del { order: 3; margin-left: 4px; }
+/* todo card matches Schedule card height — title on line 1, badge+stars on line 2 */
+.card.todo { padding: 13px 14px; align-items: flex-start; }
+.card.todo .body { min-width: 0; }
+.card.todo .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card.todo .meta { font-size: 13px; color: var(--muted); margin-top: 3px; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
