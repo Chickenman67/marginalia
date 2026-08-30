@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { applyView } from "../../src/ui/views";
+import { applyView, cardHTML } from "../../src/ui/views";
 import type { Item } from "../../src/types";
 
 function mkItem(title: string, datetime: string | null, status: "pending" | "done" = "pending", order = 0): Item {
@@ -95,5 +95,32 @@ describe("applyViewV2 — filters", () => {
       sort: "priority", dir: "desc"
     });
     expect(r).toHaveLength(1);
+  });
+});
+
+describe("cardHTML — compact todo", () => {
+  it("does not include the drag handle", () => {
+    const html = cardHTML({
+      id: "x", space_token: "s", kind: "todo", title: "T",
+      datetime: null, all_day: false, reminder: null, status: "pending",
+      created_at: "2026-01-01T00:00:00.000Z", order: 0, pinned: false, rating: 0
+    });
+    expect(html).not.toContain("drag-h");
+  });
+  it("includes the stars container for todos", () => {
+    const html = cardHTML({
+      id: "x", space_token: "s", kind: "todo", title: "T",
+      datetime: null, all_day: false, reminder: null, status: "pending",
+      created_at: "2026-01-01T00:00:00.000Z", order: 0, pinned: false, rating: 0
+    });
+    expect(html).toContain("class=\"stars\"");
+  });
+  it("does not include a meta block for todos", () => {
+    const html = cardHTML({
+      id: "x", space_token: "s", kind: "todo", title: "T",
+      datetime: null, all_day: false, reminder: null, status: "pending",
+      created_at: "2026-01-01T00:00:00.000Z", order: 0, pinned: false, rating: 0
+    });
+    expect(html).not.toContain("class=\"meta\"");
   });
 });

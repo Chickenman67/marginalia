@@ -223,6 +223,30 @@ export function clock(dt: string | null): string {
 }
 
 export function cardHTML(i: Item, opts: { selectable?: boolean; selected?: boolean; showPin?: boolean } = {}): string {
+  if (i.kind === "todo") return todoCardHTML(i, opts);
+  return eventCardHTML(i, opts);
+}
+
+function todoCardHTML(i: Item, opts: { selectable?: boolean; selected?: boolean }): string {
+  const isPast = false;
+  const accent = colorFor(i.datetime || i.reminder);
+  const accentAttr = accent ? ` data-accent="${accent}"` : "";
+  const sel = opts.selectable
+    ? `<input type="checkbox" class="sel" ${opts.selected ? "checked" : ""} aria-label="Select ${esc(i.title)}" />`
+    : "";
+  return `<div class="card todo ${i.status === "done" ? "done" : ""} ${isPast ? "past" : ""} ${opts.selected ? "selected" : ""}" data-id="${i.id}"${accentAttr}>
+    ${sel}
+    <input type="checkbox" class="check" ${i.status === "done" ? "checked" : ""} aria-label="Complete ${esc(i.title)}" />
+    <div class="body">
+      <div class="title">${esc(i.title)}</div>
+      <span class="badge todo">todo</span>
+      ${starHTML(i.rating, i.id)}
+    </div>
+    <button class="del" title="Delete" aria-label="Delete ${esc(i.title)}">🗑</button>
+  </div>`;
+}
+
+function eventCardHTML(i: Item, opts: { selectable?: boolean; selected?: boolean; showPin?: boolean }): string {
   const isPast = i.kind === "event" && !!i.datetime && new Date(i.datetime) < new Date() && i.status !== "done";
   const time = i.kind === "event" && i.datetime ? (i.all_day ? "" : clock(i.datetime)) : "";
   const remind = i.reminder ? `<span class="remind">🔔 ${clock(i.reminder)}</span>` : "";
@@ -234,9 +258,7 @@ export function cardHTML(i: Item, opts: { selectable?: boolean; selected?: boole
   const pin = opts.showPin === false
     ? ""
     : `<button type="button" class="pin-btn ${i.pinned ? "on" : ""}" title="${i.pinned ? "Unpin" : "Pin"}">${i.pinned ? "📌" : "📍"}</button>`;
-  const handle = `<span class="drag-h" title="Drag to reorder" draggable="true">⠿</span>`;
   return `<div class="card ${i.status === "done" ? "done" : ""} ${isPast ? "past" : ""} ${opts.selected ? "selected" : ""}" data-id="${i.id}"${accentAttr}>
-    ${handle}
     ${sel}
     <input type="checkbox" class="check" ${i.status === "done" ? "checked" : ""} aria-label="Complete ${esc(i.title)}" />
     <div class="body">
