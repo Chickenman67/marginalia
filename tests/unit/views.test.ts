@@ -98,29 +98,41 @@ describe("applyViewV2 — filters", () => {
   });
 });
 
-describe("cardHTML — compact todo", () => {
+describe("cardHTML — todo matches Schedule height", () => {
+  const todo = (): Item => ({
+    id: "x", space_token: "s", kind: "todo", title: "T",
+    datetime: null, all_day: false, reminder: null, status: "pending",
+    created_at: "2026-01-01T00:00:00.000Z", order: 0, pinned: false, rating: 0
+  });
+
   it("does not include the drag handle", () => {
-    const html = cardHTML({
-      id: "x", space_token: "s", kind: "todo", title: "T",
-      datetime: null, all_day: false, reminder: null, status: "pending",
-      created_at: "2026-01-01T00:00:00.000Z", order: 0, pinned: false, rating: 0
-    });
-    expect(html).not.toContain("drag-h");
+    expect(cardHTML(todo())).not.toContain("drag-h");
   });
-  it("includes the stars container for todos", () => {
-    const html = cardHTML({
-      id: "x", space_token: "s", kind: "todo", title: "T",
-      datetime: null, all_day: false, reminder: null, status: "pending",
-      created_at: "2026-01-01T00:00:00.000Z", order: 0, pinned: false, rating: 0
-    });
-    expect(html).toContain("class=\"stars\"");
+
+  it("renders title inside .body on line 1", () => {
+    const html = cardHTML(todo());
+    expect(html).toMatch(/<div class="body">\s*<div class="title">T<\/div>/);
   });
-  it("does not include a meta block for todos", () => {
-    const html = cardHTML({
-      id: "x", space_token: "s", kind: "todo", title: "T",
-      datetime: null, all_day: false, reminder: null, status: "pending",
-      created_at: "2026-01-01T00:00:00.000Z", order: 0, pinned: false, rating: 0
-    });
-    expect(html).not.toContain("class=\"meta\"");
+
+  it("renders the badge inside .meta on line 2", () => {
+    const html = cardHTML(todo());
+    expect(html).toMatch(/<div class="meta">[\s\S]*<span class="badge todo">todo<\/span>[\s\S]*<\/div>/);
+  });
+
+  it("renders the stars container inside .meta", () => {
+    const html = cardHTML(todo());
+    expect(html.replace(/\s+/g, " ")).toContain(
+      '<div class="meta"> <span class="badge todo">todo</span> <span class="stars"'
+    );
+  });
+
+  it("keeps the check and delete buttons outside .body", () => {
+    const html = cardHTML(todo());
+    const bodyIdx = html.indexOf('<div class="body">');
+    const checkIdx = html.indexOf('<input type="checkbox" class="check"');
+    const delIdx = html.indexOf('<button class="del"');
+    expect(checkIdx).toBeGreaterThan(-1);
+    expect(checkIdx).toBeLessThan(bodyIdx);
+    expect(delIdx).toBeGreaterThan(bodyIdx);
   });
 });
