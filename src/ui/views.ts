@@ -215,7 +215,7 @@ export function clock(dt: string | null): string {
   return formatClock(dt);
 }
 
-export function cardHTML(i: Item, opts: { selectable?: boolean; selected?: boolean } = {}): string {
+export function cardHTML(i: Item, opts: { selectable?: boolean; selected?: boolean; showPin?: boolean } = {}): string {
   const isPast = i.kind === "event" && !!i.datetime && new Date(i.datetime) < new Date() && i.status !== "done";
   const time = i.kind === "event" && i.datetime ? (i.all_day ? "" : clock(i.datetime)) : "";
   const remind = i.reminder ? `<span class="remind">🔔 ${clock(i.reminder)}</span>` : "";
@@ -224,7 +224,9 @@ export function cardHTML(i: Item, opts: { selectable?: boolean; selected?: boole
   const sel = opts.selectable
     ? `<input type="checkbox" class="sel" ${opts.selected ? "checked" : ""} aria-label="Select ${esc(i.title)}" />`
     : "";
-  const pin = `<button type="button" class="pin-btn ${i.pinned ? "on" : ""}" title="${i.pinned ? "Unpin" : "Pin"}">${i.pinned ? "📌" : "📍"}</button>`;
+  const pin = opts.showPin === false
+    ? ""
+    : `<button type="button" class="pin-btn ${i.pinned ? "on" : ""}" title="${i.pinned ? "Unpin" : "Pin"}">${i.pinned ? "📌" : "📍"}</button>`;
   const handle = `<span class="drag-h" title="Drag to reorder" draggable="true">⠿</span>`;
   return `<div class="card ${i.status === "done" ? "done" : ""} ${isPast ? "past" : ""} ${opts.selected ? "selected" : ""}" data-id="${i.id}"${accentAttr}>
     ${handle}
