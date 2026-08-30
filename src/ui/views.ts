@@ -2,6 +2,44 @@ import type { Item } from "../types";
 import { toggleDone, deleteItem, reorder, togglePin } from "../store";
 import { colorFor, formatClock } from "../settings";
 
+export const STAR_SYMBOL_ID = "starShape";
+export const STAR_POLYGON = "12,2 14.85,8.5 22,9.3 16.5,14 18,21 12,17.3 6,21 7.5,14 2,9.3 9.15,8.5";
+
+export function starSymbolHTML(): string {
+  return `<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="${STAR_SYMBOL_ID}" viewBox="0 0 24 24">
+        <polygon points="${STAR_POLYGON}"/>
+      </symbol>
+    </defs>
+  </svg>`;
+}
+
+export function starHTML(rating: number, itemId: string): string {
+  const r = Math.max(0, Math.min(5, Math.round(rating * 2) / 2));
+  let stars = "";
+  for (let i = 1; i <= 5; i++) {
+    if (r >= i) {
+      stars += `<span class="star full" data-item="${itemId}" data-value="${i}">
+        <svg viewBox="0 0 24 24"><use href="#${STAR_SYMBOL_ID}" fill="#f5c518" stroke="#3a2e10" stroke-width="1.4" stroke-linejoin="round"/></svg>
+      </span>`;
+    } else if (r >= i - 0.5) {
+      stars += `<span class="star half" data-item="${itemId}" data-value="${i - 0.5}">
+        <svg viewBox="0 0 24 24">
+          <use href="#${STAR_SYMBOL_ID}" fill="#fff8d6" stroke="none"/>
+          <rect x="0" y="0" width="12" height="24" fill="#f5c518" clip-path="polygon(12px 2px, 14.85px 8.5px, 22px 9.3px, 16.5px 14px, 18px 21px, 12px 17.3px, 6px 21px, 7.5px 14px, 2px 9.3px, 9.15px 8.5px)"/>
+          <use href="#${STAR_SYMBOL_ID}" fill="none" stroke="#3a2e10" stroke-width="1.4" stroke-linejoin="round"/>
+        </svg>
+      </span>`;
+    } else {
+      stars += `<span class="star empty" data-item="${itemId}" data-value="${i - 1}">
+        <svg viewBox="0 0 24 24"><use href="#${STAR_SYMBOL_ID}" fill="#fff8d6" stroke="#3a2e10" stroke-width="1.4" stroke-linejoin="round"/></svg>
+      </span>`;
+    }
+  }
+  return `<span class="stars" role="radiogroup" aria-label="Rating" data-item="${itemId}">${stars}</span>`;
+}
+
 export type SortMode = "manual" | "date" | "title" | "status" | "priority";
 export interface ViewState {
   search: string;

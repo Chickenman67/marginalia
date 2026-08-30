@@ -5,9 +5,11 @@ import { getSettings } from "./settings";
 import { mountHeader } from "./ui/header";
 import { mountInput, mountViews } from "./ui/input";
 import { fireNotifications, resetNotified } from "./reminders";
+import { starSymbolHTML } from "./ui/views";
 import type { Item } from "./types";
 
 async function boot() {
+  document.body.insertAdjacentHTML("afterbegin", starSymbolHTML());
   mountHeader();
   mountInput();
   mountViews();
