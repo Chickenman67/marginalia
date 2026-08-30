@@ -6,7 +6,11 @@ dist
 supabase/.temp
 opencode.json
 
+# controller-only helper script (not part of the app)
+scripts/sdd.ps1
+
 # stray TS compile output (build uses tsc --noEmit)
 src/**/*.js
+
 
 
