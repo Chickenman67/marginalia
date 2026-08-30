@@ -134,6 +134,7 @@ export function mountFilterPanel(opts: {
         <select aria-label="Sort">${sortOptionsHTML}</select>
         <button type="button" class="reverse" title="Reverse sort direction" aria-label="Reverse sort direction">↑↓</button>
       </div>
+      <button type="button" class="reset" hidden>Reset filters</button>
     `;
     panel.querySelector<HTMLInputElement>(".search input")!.oninput = (e) => {
       state.search = (e.target as HTMLInputElement).value;
@@ -161,6 +162,11 @@ export function mountFilterPanel(opts: {
       drawPanel();
       emit();
     };
+    panel.querySelector<HTMLButtonElement>(".reset")!.onclick = () => {
+      state = JSON.parse(JSON.stringify(DEFAULTS[viewKey]));
+      drawPanel();
+      emit();
+    };
   }
 
   function emit() {
@@ -169,7 +175,10 @@ export function mountFilterPanel(opts: {
   }
 
   function refreshPill() {
-    pill.querySelector(".dot")!.toggleAttribute("hidden", isDefault(state, viewKey));
+    const dirty = !isDefault(state, viewKey);
+    pill.querySelector(".dot")!.toggleAttribute("hidden", dirty);
+    const resetBtn = panel.querySelector<HTMLButtonElement>(".reset");
+    if (resetBtn) resetBtn.hidden = !dirty;
   }
 
   function setOpen(v: boolean) {
