@@ -230,9 +230,11 @@ export function mountViews(): void {
     };
   });
 
-  let latestItems: Item[] = [];
-  subscribe((items: Item[]) => { latestItems = items; renderAll(items); });
-
+  // viewState / controls / selection state must be initialized BEFORE the
+  // store subscribe call: store.subscribe() fires its callback synchronously
+  // on registration, and renderAll() reads these via closure. Declaring them
+  // after subscribe() would hit a TDZ ReferenceError, abort mountViews, and
+  // leave the manual event form (date/time/Add) un-wired.
   const viewState: ViewState = { search: "", status: "all", sort: "manual" };
   const controls = document.createElement("div");
   controls.className = "list-controls";
@@ -299,6 +301,9 @@ export function mountViews(): void {
     renderAll(latestItems);
     updateSelToolbar();
   };
+
+  let latestItems: Item[] = [];
+  subscribe((items: Item[]) => { latestItems = items; renderAll(items); });
 
   // Re-render immediately when a time/color setting changes so existing cards
   // and clock strings update without reloading.
