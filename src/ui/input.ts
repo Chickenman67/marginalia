@@ -2,7 +2,7 @@ import { isDemoMode } from "../config";
 import { addItem, getSpaceId, getSpaceToken, subscribe, deleteItem, setItems } from "../store";
 import { parsePhrase, polishPhrase, updateItem } from "../supabase";
 import { createSpeech } from "../speech";
-import { cardHTML, bindCardEvents, groupByDay, esc, applyViewV2, starHTML, starClickValue, type ScheduleState, type TodosState, type DueState } from "./views";
+import { cardHTML, bindCardEvents, groupByDay, esc, applyViewV2, starClickValue, type ScheduleState, type TodosState, type DueState } from "./views";
 import { mountFilterPanel } from "./filterPanel";
 import { openCalendar, openTimePicker } from "./calendar";
 import { getSettings, formatClock, subscribeSettings } from "../settings";
@@ -217,7 +217,6 @@ export function mountViews(): void {
   const vSched = el<HTMLDivElement>("#view-schedule");
   const vTodo = el<HTMLDivElement>("#view-todos");
   const vDue = el<HTMLDivElement>("#view-due");
-  const schedList = el<HTMLDivElement>("#scheduleList");
   const cSched = el<HTMLSpanElement>("#cSched");
   const cTodo = el<HTMLSpanElement>("#cTodo");
   const cDue = el<HTMLSpanElement>("#cDue");
@@ -237,10 +236,21 @@ export function mountViews(): void {
   const todosState: TodosState = { search: "", filters: { priority: "all", status: "all" }, sort: "priority", dir: "desc" };
   const dueState: DueState = { search: "", filters: { dueWindow: "now", kind: "all" }, sort: "date", dir: "asc" };
 
-  // Inject a filter pill + panel into each view (the panel is the host's first child)
-  mountFilterPanel({ viewKey: "schedule", initial: scheduleState, host: vSched, onChange: (s) => { Object.assign(scheduleState, s); renderAll(latestItems); } });
-  mountFilterPanel({ viewKey: "todos", initial: todosState, host: vTodo, onChange: (s) => { Object.assign(todosState, s); renderAll(latestItems); } });
-  mountFilterPanel({ viewKey: "due", initial: dueState, host: vDue, onChange: (s) => { Object.assign(dueState, s); renderAll(latestItems); } });
+  // Each view gets a top "bar" (filter pill + panel) and a "cards" container
+  // (rendered by renderAll). The bar is not touched by re-renders.
+  for (const v of [vSched, vTodo, vDue]) {
+    const bar = document.createElement("div");
+    bar.className = "view-bar";
+    const cards = document.createElement("div");
+    cards.className = "view-cards";
+    v.appendChild(bar);
+    v.appendChild(cards);
+  }
+
+  // Inject a filter pill + panel into each view's bar (bar survives renderAll's innerHTML wipe)
+  mountFilterPanel({ viewKey: "schedule", initial: scheduleState, host: vSched.querySelector<HTMLElement>(".view-bar")!, onChange: (s) => { Object.assign(scheduleState, s); renderAll(latestItems); } });
+  mountFilterPanel({ viewKey: "todos", initial: todosState, host: vTodo.querySelector<HTMLElement>(".view-bar")!, onChange: (s) => { Object.assign(todosState, s); renderAll(latestItems); } });
+  mountFilterPanel({ viewKey: "due", initial: dueState, host: vDue.querySelector<HTMLElement>(".view-bar")!, onChange: (s) => { Object.assign(dueState, s); renderAll(latestItems); } });
 
   // Selection mode
   const selected = new Set<string>();
@@ -350,26 +360,18 @@ export function mountViews(): void {
     cTodo.textContent = String(todos.filter((i) => i.status !== "done").length || "");
     cDue.textContent = String(dueShown.length || "");
 
-    schedList.innerHTML = events.length ? groupByDay(events, selectable) : `<div class="empty">Nothing scheduled. Speak or type to add one.</div>`;
-    vTodo.innerHTML = todos.length ? todos.map((i) => cardHTML(i, { selectable, selected: selected.has(i.id), showPin: false })).join("") : `<div class="empty">No todos. Add one below.</div>`;
-    vDue.innerHTML = dueShown.length ? dueShown.map((i) => cardHTML(i, { selectable, selected: selected.has(i.id), showPin: i.kind === "event" })).join("") : `<div class="empty">Nothing due right now.</div>`;
-
-    // Inject stars under each todo card's meta row
-    document.querySelectorAll<HTMLElement>("#view-todos .card").forEach((card) => {
-      const id = card.dataset.id!;
-      const item = todos.find((i) => i.id === id);
-      if (!item) return;
-      const meta = card.querySelector(".meta");
-      if (meta && !meta.querySelector(".stars")) {
-        meta.insertAdjacentHTML("beforeend", `<span style="display:inline-block;width:8px"></span>${starHTML(item.rating, id)}`);
-      }
-    });
+    const schedCards = vSched.querySelector<HTMLElement>(".view-cards")!;
+    const todoCards = vTodo.querySelector<HTMLElement>(".view-cards")!;
+    const dueCards = vDue.querySelector<HTMLElement>(".view-cards")!;
+    schedCards.innerHTML = events.length ? groupByDay(events, selectable) : `<div class="empty">Nothing scheduled. Speak or type to add one.</div>`;
+    todoCards.innerHTML = todos.length ? todos.map((i) => cardHTML(i, { selectable, selected: selected.has(i.id), showPin: false })).join("") : `<div class="empty">No todos. Add one below.</div>`;
+    dueCards.innerHTML = dueShown.length ? dueShown.map((i) => cardHTML(i, { selectable, selected: selected.has(i.id), showPin: i.kind === "event" })).join("") : `<div class="empty">Nothing due right now.</div>`;
 
     const selCtx = { selected, onChange: updateSelToolbar };
-    bindCardEvents(schedList, undefined, selCtx);
-    bindCardEvents(vTodo, undefined, selCtx);
-    bindCardEvents(vDue, undefined, selCtx);
-    bindStarEvents(vTodo, latestItems);
+    bindCardEvents(schedCards, undefined, selCtx);
+    bindCardEvents(todoCards, undefined, selCtx);
+    bindCardEvents(dueCards, undefined, selCtx);
+    bindStarEvents(todoCards, latestItems);
   }
 }
 

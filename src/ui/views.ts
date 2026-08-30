@@ -1,5 +1,5 @@
 import type { Item } from "../types";
-import { toggleDone, deleteItem, reorder, togglePin } from "../store";
+import { toggleDone, deleteItem, togglePin } from "../store";
 import { colorFor, formatClock } from "../settings";
 
 export const STAR_SYMBOL_ID = "starShape";
@@ -313,29 +313,12 @@ export function bindCardEvents(
       };
     });
   }
-  // pin button + drag (available regardless of selection mode)
+  // pin button (drag handlers removed in Task 3 — UI affordance gone)
   root.querySelectorAll<HTMLButtonElement>(".pin-btn").forEach((b) => {
     b.onclick = () => {
       const id = (b.closest(".card") as HTMLElement).dataset.id!;
       togglePin(id);
     };
-  });
-  root.querySelectorAll<HTMLElement>(".drag-h").forEach((h) => {
-    const card = h.closest(".card") as HTMLElement;
-    card.addEventListener("dragstart", () => card.classList.add("dragging"));
-    card.addEventListener("dragend", () => card.classList.remove("dragging"));
-    card.addEventListener("dragover", (e) => e.preventDefault());
-    card.addEventListener("drop", (e) => {
-      e.preventDefault();
-      const dragging = root.querySelector(".card.dragging") as HTMLElement | null;
-      if (!dragging || dragging === card) return;
-      const ids = [...root.querySelectorAll<HTMLElement>(".card")].map((c) => c.dataset.id!);
-      const from = ids.indexOf(dragging.dataset.id!);
-      const to = ids.indexOf(card.dataset.id!);
-      if (from < 0 || to < 0) return;
-      ids.splice(to, 0, ids.splice(from, 1)[0]);
-      reorder(ids);
-    });
   });
 }
 
