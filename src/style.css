@@ -314,7 +314,6 @@ main { flex: 1; padding: 18px 22px 150px; }
 /* cards */
 .card { position: relative; }
 .card.selected { outline: 2px solid var(--ink); }
-.drag-h { cursor: grab; color: var(--muted); padding: 0 4px; user-select: none; }
 .card.dragging { opacity: .5; }
 .pin-btn { border: none; background: none; cursor: pointer; font-size: 15px; line-height: 1; padding: 2px 4px; }
 .card .pin-btn.on { filter: none; }
@@ -325,8 +324,7 @@ main { flex: 1; padding: 18px 22px 150px; }
 .stars { display: inline-flex; gap: 1px; align-items: center; }
 .stars .star { width: 22px; height: 22px; display: inline-block; cursor: pointer; line-height: 0; }
 .stars .star svg { display: block; width: 100%; height: 100%; pointer-events: none; }
-.stars .star.empty svg { opacity: .55; }
-.stars:hover .star.empty svg { opacity: 1; }
+.stars .star.empty svg { opacity: 1; }
 
 /* filter pill + panel */
 .filter-pill {
@@ -377,3 +375,16 @@ main { flex: 1; padding: 18px 22px 150px; }
 .bulk-delete-pop button.danger { color: var(--danger); }
 .bulk-delete-pop button:hover { background: var(--paper); }
 .bulk-delete-btn { color: var(--danger); border-color: var(--danger) !important; background: var(--panel); }
+
+/* view bar (filter pill + panel) */
+.view-bar { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.view-bar .filter-pill { align-self: flex-end; }
+.view-bar .filter-panel { width: 100%; margin-bottom: 0; }
+
+/* compact todo card */
+.card.todo { padding: 8px 14px; align-items: center; }
+.card.todo .body { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.card.todo .title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card.todo .badge.todo { order: 1; }
+.card.todo .stars { order: 2; flex: none; }
+.card.todo .del { order: 3; margin-left: 4px; }
