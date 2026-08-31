@@ -16,7 +16,7 @@
   --r: 12px;
   --maxw: 760px;
   --star-fill: #f5c518;
-  --star-empty: #d8d0bf;  /* was #fff8d6 — softer, visible against cream card bg */
+  --star-empty: #c4baa6;  /* muted gray-brown, clearly visible against cream card bg */
   --star-stroke: #3a2e10;
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }

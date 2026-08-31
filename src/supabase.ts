@@ -156,7 +156,7 @@ function normalize(j: any): ParsedItem {
     title: String(j.title ?? "Untitled").slice(0, 120),
     kind,
     datetime,
-    reminder: asLocalISO(j.reminder || (kind === "event" ? j.datetime || j.start : null))
+    reminder: j.reminder ? asLocalISO(j.reminder) : null
   };
 }
 
@@ -167,7 +167,7 @@ function normalizeDraft(j: any): DraftItem {
     title: String(j.title ?? "Untitled").slice(0, 120),
     kind,
     datetime,
-    reminder: asLocalISO(j.reminder || (kind === "event" ? j.datetime || j.start : null))
+    reminder: j.reminder ? asLocalISO(j.reminder) : null
   };
 }
 

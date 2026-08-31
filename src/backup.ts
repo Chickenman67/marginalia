@@ -150,7 +150,7 @@ function parseText(text: string): ImportRow[] {
       title: title || "Untitled",
       datetime,
       all_day: false,
-      reminder: datetime,
+      reminder: null,
       status,
       rating: 0
     });

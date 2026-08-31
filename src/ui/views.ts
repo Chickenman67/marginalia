@@ -261,7 +261,10 @@ function eventCardHTML(i: Item, opts: { selectable?: boolean; selected?: boolean
   const time = i.kind === "event" && i.datetime
     ? (i.all_day ? `${weekdayPart}<span class="badge allday">all day</span>` : `${weekdayPart}<span>${clock(i.datetime)}</span>`)
     : "";
-  const remind = i.reminder ? `<span class="remind">🔔 ${clock(i.reminder)}</span>` : "";
+  // Suppress the bell when reminder equals datetime — that's the old auto-default
+  // (notifications.ts already filters this out at the notifier; we mirror that here
+  // so the UI never shows two copies of the same time).
+  const remind = i.reminder && i.reminder !== i.datetime ? `<span class="remind">🔔 ${clock(i.reminder)}</span>` : "";
   const accent = colorFor(i.datetime || i.reminder);
   const accentAttr = accent ? ` data-accent="${accent}"` : "";
   const sel = opts.selectable

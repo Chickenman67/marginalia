@@ -178,6 +178,37 @@ describe("cardHTML — schedule weekday", () => {
   });
 });
 
+describe("eventCardHTML — reminder display", () => {
+  const ev = (o: Partial<Item> = {}): Item => ({
+    id: "e", space_token: "s", kind: "event", title: "E",
+    datetime: "2026-09-07T15:00:00.000Z", all_day: false,
+    reminder: null, status: "pending",
+    created_at: "2026-01-01T00:00:00.000Z", order: 0, pinned: false,
+    rating: 0, ...o
+  });
+
+  it("omits the 🔔 bell when reminder is null", () => {
+    expect(cardHTML(ev({ reminder: null }))).not.toContain("remind");
+  });
+  it("shows the 🔔 bell only when reminder is set and different from datetime", () => {
+    const html = cardHTML(ev({ reminder: "2026-09-07T14:30:00.000Z" }));
+    expect(html).toContain('class="remind"');
+  });
+  it("hides the 🔔 bell when reminder equals datetime (defense in depth)", () => {
+    // The data layer should never set reminder = datetime (we fixed that).
+    // But if a stale row sneaks through, the renderer hides the bell so the
+    // user never sees two copies of the same time.
+    const html = cardHTML(ev({ reminder: "2026-09-07T15:00:00.000Z" }));
+    expect(html).not.toContain('class="remind"');
+  });
+  it("the meta row shows exactly one time token when reminder === datetime", () => {
+    const html = cardHTML(ev({ reminder: "2026-09-07T15:00:00.000Z" }));
+    // Count <span>...</span> that look like clock tokens (have a digit).
+    const timeTokens = (html.match(/<span>[^<]*\d[^<]*<\/span>/g) || []).length;
+    expect(timeTokens).toBe(1);
+  });
+});
+
 describe("style.css — weekday + todo sizing", () => {
   const css = readFileSync(resolve(__dirname, "../../src/style.css"), "utf8");
 
@@ -199,5 +230,8 @@ describe("style.css — weekday + todo sizing", () => {
   });
   it(".card.todo .stars .star is 18px to fit next to badge", () => {
     expect(css).toMatch(/\.card\.todo\s+\.stars\s+\.star\s*\{[^}]*width:\s*18px[^}]*height:\s*18px/);
+  });
+  it("uses a darker --star-empty so unrated stars are clearly visible", () => {
+    expect(css).toMatch(/--star-empty:\s*#c4baa6/);
   });
 });

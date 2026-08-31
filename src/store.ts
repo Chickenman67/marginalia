@@ -265,7 +265,7 @@ function mk(title: string, kind: "todo" | "event", datetime: string | null, spac
     title,
     datetime,
     all_day: false,
-    reminder: datetime,
+    reminder: null,
     status,
     created_at: new Date().toISOString(),
     order: 0,
