@@ -122,10 +122,10 @@ Deno.serve(async (req) => {
   const items = Array.isArray(parsed.items) ? parsed.items : [];
   const out = {
     items: items.slice(0, 100).map((it: any) => ({
-      title: String(it.title ?? "").slice(0, 120),
+      title: String(it.title || it.phrase || "").slice(0, 120),
       kind: it.kind === "event" ? "event" : "todo",
       datetime: it.datetime || null,
-      reminder: it.reminder || (it.kind === "event" ? (it.datetime || null) : null)
+      reminder: it.reminder || null
     }))
   };
 

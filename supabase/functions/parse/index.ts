@@ -181,10 +181,10 @@ Deno.serve(async (req) => {
   try { parsed = JSON.parse(content); } catch { parsed = { title: phrase, type: "todo" }; }
 
   const out = {
-    title: String(parsed.title ?? phrase).slice(0, 120),
+    title: String(parsed.title || phrase).slice(0, 120),
     kind: parsed.type === "event" ? "event" : "todo",
     datetime: parsed.datetime || null,
-    reminder: parsed.reminder || (parsed.type === "event" ? parsed.datetime : null)
+    reminder: parsed.reminder || null
   };
 
   return new Response(JSON.stringify(out), { headers: { ...cors, "content-type": "application/json" } });

@@ -36,6 +36,11 @@ export function mountInput(): void {
   const paraMic = el<HTMLButtonElement>("#paraMic");
 
   const speech = createSpeech();
+  // Track where the latest text in the input came from. The dictation path
+  // hits the LLM (voice transcription is messy; LLM cleans it up). Manual
+  // typing skips the LLM and adds instantly with the local guess — typing is
+  // already structured input, so a network round-trip just adds latency.
+  let fromVoice = false;
   if (!speech.supported) {
     micBtn.disabled = true;
     micBtn.title = "Voice not supported here";
@@ -43,7 +48,7 @@ export function mountInput(): void {
     paraMic.title = "Voice not supported here";
     hint.textContent = "Voice not supported in this browser — type instead (Enter to add)";
   } else {
-    speech.onResult = (text) => { phraseEl.value = text; updatePreview(); };
+    speech.onResult = (text) => { fromVoice = true; phraseEl.value = text; updatePreview(); };
     speech.onState = (l) => micBtn.classList.toggle("listening", l);
     micBtn.onclick = () => (micBtn.classList.contains("listening") ? speech.stop() : speech.start());
   }
@@ -55,10 +60,12 @@ export function mountInput(): void {
     previewText.textContent = `${draft.kind === "event" ? "📅" : "☑"} ${esc(draft.title)}${draft.datetime ? " · " + clock(draft.datetime) : ""}`;
     preview.classList.add("show");
   }
-  phraseEl.addEventListener("input", updatePreview);
+  // Manual typing resets the voice flag — once the user touches the keyboard
+  // they own the text and we don't want a stale voice flag from earlier dictation.
+  phraseEl.addEventListener("input", () => { fromVoice = false; updatePreview(); });
   phraseEl.addEventListener("keydown", (e) => { if (e.key === "Enter") commit(); });
   el<HTMLButtonElement>("#quickAdd").onclick = commit;
-  el<HTMLSpanElement>("#previewX").onclick = () => { phraseEl.value = ""; preview.classList.remove("show"); draft = null; };
+  el<HTMLSpanElement>("#previewX").onclick = () => { fromVoice = false; phraseEl.value = ""; preview.classList.remove("show"); draft = null; };
 
   async function commit() {
     const text = phraseEl.value.trim();
@@ -69,12 +76,22 @@ export function mountInput(): void {
     mic.disabled = true;
     phraseEl.disabled = true;
     addBtn.textContent = "…";
+    const useLLM = fromVoice;
+    fromVoice = false; // consume the flag so a second Enter doesn't re-trigger LLM
     let parsed: ParsedItem;
-    try {
-      parsed = await parsePhrase(text);
-    } catch (err) {
+    if (useLLM) {
+      try {
+        parsed = await parsePhrase(text);
+        // Guard against the LLM returning a blank or whitespace title — fall
+        // back to the raw input so the user never sees an empty card.
+        if (!parsed.title || !parsed.title.trim()) parsed = { ...parsed, title: text };
+      } catch (err) {
+        parsed = { title: text, kind: "todo", datetime: null, reminder: null };
+        showNotice(`AI unavailable — added as a plain note. (${err instanceof Error ? err.message : "error"})`);
+      }
+    } else {
+      // Manual typing: add immediately with the local guess. No network.
       parsed = { title: text, kind: "todo", datetime: null, reminder: null };
-      showNotice(`AI unavailable — added as a plain note. (${err instanceof Error ? err.message : "error"})`);
     }
     await addItem(parsed, getSpaceToken());
     phraseEl.value = "";
