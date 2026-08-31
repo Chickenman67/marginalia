@@ -397,3 +397,12 @@ main { flex: 1; padding: 18px 22px 150px; }
 .card.todo .body { min-width: 0; }
 .card.todo .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .card.todo .meta { font-size: 13px; color: var(--muted); margin-top: 3px; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+
+/* weekday token on schedule event cards */
+.weekday {
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: .02em;
+  margin-right: 4px;
+}
+.weekday::after { content: " · "; color: var(--faint); margin: 0 2px; font-weight: 400; }

@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { applyView, cardHTML, weekdayShort } from "../../src/ui/views";
 import type { Item } from "../../src/types";
 
@@ -173,5 +175,16 @@ describe("cardHTML — schedule weekday", () => {
   it("omits weekday for events with no datetime (defensive)", () => {
     const html = cardHTML(ev({ datetime: null }));
     expect(html).not.toContain('<span class="weekday">');
+  });
+});
+
+describe("style.css — weekday + todo sizing", () => {
+  const css = readFileSync(resolve(__dirname, "../../src/style.css"), "utf8");
+
+  it("defines a .weekday rule", () => {
+    expect(css).toMatch(/\.weekday\s*\{/);
+  });
+  it("renders a middle-dot via .weekday::after", () => {
+    expect(css).toMatch(/\.weekday::after\s*\{[^}]*content\s*:\s*"\s*·\s*"/);
   });
 });
