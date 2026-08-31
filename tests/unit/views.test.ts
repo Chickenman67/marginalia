@@ -187,4 +187,17 @@ describe("style.css — weekday + todo sizing", () => {
   it("renders a middle-dot via .weekday::after", () => {
     expect(css).toMatch(/\.weekday::after\s*\{[^}]*content\s*:\s*"\s*·\s*"/);
   });
+
+  it(".card.todo uses compact padding (12px 14px)", () => {
+    expect(css).toMatch(/\.card\.todo\s*\{[^}]*padding:\s*12px\s+14px/);
+  });
+  it(".card.todo centers children vertically", () => {
+    expect(css).toMatch(/\.card\.todo\s*\{[^}]*align-items:\s*center/);
+  });
+  it(".stars has min-width: 0 to prevent overflow", () => {
+    expect(css).toMatch(/\.stars\s*\{[^}]*min-width:\s*0/);
+  });
+  it(".card.todo .stars .star is 18px to fit next to badge", () => {
+    expect(css).toMatch(/\.card\.todo\s+\.stars\s+\.star\s*\{[^}]*width:\s*18px[^}]*height:\s*18px/);
+  });
 });

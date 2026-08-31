@@ -321,10 +321,11 @@ main { flex: 1; padding: 18px 22px 150px; }
 .day-del:hover { color: var(--ink); }
 
 /* star widget */
-.stars { display: inline-flex; gap: 1px; align-items: center; }
+.stars { display: inline-flex; gap: 0; align-items: center; min-width: 0; }
 .stars .star { width: 22px; height: 22px; display: inline-block; cursor: pointer; line-height: 0; }
 .stars .star svg { display: block; width: 100%; height: 100%; pointer-events: none; }
 .stars .star.empty svg { opacity: 1; }
+.card.todo .stars .star { width: 18px; height: 18px; }
 
 /* filter pill + panel */
 .filter-pill {
@@ -393,10 +394,10 @@ main { flex: 1; padding: 18px 22px 150px; }
 .view-bar .filter-panel { width: 100%; margin-bottom: 0; }
 
 /* todo card matches Schedule card height — title on line 1, badge+stars on line 2 */
-.card.todo { padding: 13px 14px; align-items: flex-start; }
+.card.todo { padding: 12px 14px; align-items: center; }
 .card.todo .body { min-width: 0; }
-.card.todo .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.card.todo .meta { font-size: 13px; color: var(--muted); margin-top: 3px; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+.card.todo .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
+.card.todo .meta { gap: 6px 8px; }
 
 /* weekday token on schedule event cards */
 .weekday {
