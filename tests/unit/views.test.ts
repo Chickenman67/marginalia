@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { applyView, cardHTML } from "../../src/ui/views";
+import { applyView, cardHTML, weekdayShort } from "../../src/ui/views";
 import type { Item } from "../../src/types";
 
 function mkItem(title: string, datetime: string | null, status: "pending" | "done" = "pending", order = 0): Item {
@@ -134,5 +134,44 @@ describe("cardHTML — todo matches Schedule height", () => {
     expect(checkIdx).toBeGreaterThan(-1);
     expect(checkIdx).toBeLessThan(bodyIdx);
     expect(delIdx).toBeGreaterThan(bodyIdx);
+  });
+});
+
+describe("weekdayShort", () => {
+  it("returns short weekday for a valid ISO string", () => {
+    // 2026-09-07 is a Monday
+    expect(weekdayShort("2026-09-07T09:00:00.000Z")).toMatch(/Mon/);
+  });
+  it("returns empty string for an invalid date", () => {
+    expect(weekdayShort("not-a-date")).toBe("");
+  });
+  it("returns empty string for empty input", () => {
+    expect(weekdayShort("")).toBe("");
+  });
+});
+
+describe("cardHTML — schedule weekday", () => {
+  const ev = (o: Partial<Item> = {}): Item => ({
+    id: "e", space_token: "s", kind: "event", title: "E",
+    datetime: "2026-09-07T09:00:00.000Z", all_day: false,
+    reminder: null, status: "pending",
+    created_at: "2026-01-01T00:00:00.000Z", order: 0, pinned: false,
+    rating: 0, ...o
+  });
+
+  it("renders <span class=\"weekday\"> for dated events", () => {
+    expect(cardHTML(ev())).toMatch(/<span class="weekday">Mon<\/span>/);
+  });
+  it("renders weekday + time token for non-all-day events", () => {
+    const html = cardHTML(ev());
+    expect(html).toMatch(/<span class="weekday">Mon<\/span>[\s\S]*?\d/);
+  });
+  it("renders weekday + 'all day' for all-day events", () => {
+    const html = cardHTML(ev({ all_day: true }));
+    expect(html).toMatch(/<span class="weekday">Mon<\/span>[\s\S]*?all day/);
+  });
+  it("omits weekday for events with no datetime (defensive)", () => {
+    const html = cardHTML(ev({ datetime: null }));
+    expect(html).not.toContain('<span class="weekday">');
   });
 });

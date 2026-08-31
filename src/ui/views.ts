@@ -223,6 +223,12 @@ export function clock(dt: string | null): string {
   return formatClock(dt);
 }
 
+export function weekdayShort(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleDateString(undefined, { weekday: "short" });
+}
+
 export function cardHTML(i: Item, opts: { selectable?: boolean; selected?: boolean; showPin?: boolean } = {}): string {
   if (i.kind === "todo") return todoCardHTML(i, opts);
   return eventCardHTML(i, opts);
@@ -250,7 +256,11 @@ function todoCardHTML(i: Item, opts: { selectable?: boolean; selected?: boolean 
 
 function eventCardHTML(i: Item, opts: { selectable?: boolean; selected?: boolean; showPin?: boolean }): string {
   const isPast = i.kind === "event" && !!i.datetime && new Date(i.datetime) < new Date() && i.status !== "done";
-  const time = i.kind === "event" && i.datetime ? (i.all_day ? "" : clock(i.datetime)) : "";
+  const wd = i.datetime ? weekdayShort(i.datetime) : "";
+  const weekdayPart = wd ? `<span class="weekday">${wd}</span>` : "";
+  const time = i.kind === "event" && i.datetime
+    ? (i.all_day ? `${weekdayPart}<span class="badge allday">all day</span>` : `${weekdayPart}<span>${clock(i.datetime)}</span>`)
+    : "";
   const remind = i.reminder ? `<span class="remind">🔔 ${clock(i.reminder)}</span>` : "";
   const accent = colorFor(i.datetime || i.reminder);
   const accentAttr = accent ? ` data-accent="${accent}"` : "";
@@ -267,8 +277,7 @@ function eventCardHTML(i: Item, opts: { selectable?: boolean; selected?: boolean
       <div class="title">${esc(i.title)}</div>
       <div class="meta">
         <span class="badge ${i.kind}">${i.kind}</span>
-        ${i.all_day ? `<span class="badge allday">all day</span>` : ""}
-        ${time ? `<span>${time}</span>` : ""}
+        ${time}
         ${remind}
       </div>
     </div>
