@@ -195,7 +195,7 @@ export function mountInput(): void {
 // Lightweight local guess so the UI is responsive before/without the LLM call.
 function guess(text: string): ParsedItem {
   const lower = text.toLowerCase();
-  const hasTime = /\d{1,2}(:\d{2})?\s*(am|pm)?|tomorrow|today|tonight|monday|tuesday|wednesday|thursday|friday|saturday|sunday|next week|afternoon|morning|evening|lunch|dinner|noon|birthday/.test(lower);
+  const hasTime = /\b\d{1,2}:\d{2}\s*(am|pm)?\b|\b\d{1,2}\s*(am|pm)\b|\btomorrow\b|\btoday\b|\btonight\b|\bmonday\b|\btuesday\b|\bwednesday\b|\bthursday\b|\bfriday\b|\bsaturday\b|\bsunday\b|\bnext week\b|\bafternoon\b|\bmorning\b|\bevening\b|\blunch\b|\bdinner\b|\bnoon\b|\bbirthday\b/.test(lower);
   const kind = hasTime ? "event" : "todo";
   return {
     title: text.replace(/\b(tomorrow|today|at|on|my)\b/gi, "").trim().slice(0, 60) || text,
