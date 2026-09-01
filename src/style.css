@@ -397,7 +397,8 @@ main { flex: 1; padding: 18px 22px 150px; }
 .card.todo { padding: 8px 12px; align-items: center; }
 .card.todo .body { min-width: 0; }
 .card.todo .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
-.card.todo .meta { gap: 6px 8px; }
+.card.todo .meta { gap: 6px 8px; flex-wrap: nowrap; }
+.card.todo .stars { flex: 0 0 auto; }
 
 /* weekday token on schedule event cards */
 .weekday {
