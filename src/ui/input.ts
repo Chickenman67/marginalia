@@ -90,8 +90,7 @@ export function mountInput(): void {
         showNotice(`AI unavailable — added as a plain note. (${err instanceof Error ? err.message : "error"})`);
       }
     } else {
-      // Manual typing: add immediately with the local guess. No network.
-      parsed = { title: text, kind: "todo", datetime: null, reminder: null };
+      parsed = guess(text);
     }
     await addItem(parsed, getSpaceToken());
     phraseEl.value = "";
@@ -437,19 +436,11 @@ async function setRating(id: string, rating: number, items: Item[]) {
   const it = items.find((x) => x.id === id);
   if (!it) return;
   const previous = it.rating;
-  // Optimistic UI update
   const local = items.map((x) => (x.id === id ? { ...x, rating } : x));
+  setItems(local);
   try {
-    if (!isDemoMode) {
-      await updateItem(id, { rating });
-    } else {
-      setItems(local);
-    }
+    if (!isDemoMode) await updateItem(id, { rating });
   } catch (err) {
-    // Rollback path is approximate: by the time we run, the store may already
-    // have a newer emit. This re-emits the original list with the previous
-    // rating restored. In demo mode it works; in synced mode the user may
-    // briefly see the old rating come back. Acceptable for now.
     setItems(items.map((x) => (x.id === id ? { ...x, rating: previous } : x)));
     showNotice("Couldn't save rating — try again.");
   }

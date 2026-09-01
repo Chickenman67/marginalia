@@ -40,7 +40,7 @@ async function ensureSpace(supabase: any, token: string): Promise<void> {
 
 export async function insertItem(item: Item): Promise<Item> {
   const supabase = await getClient();
-  await ensureSpace(supabase, item.space_token);
+  await ensureSpace(supabase, getSpaceToken());
   const { data, error } = await supabase.from("items").insert(item).select().single();
   if (error) throw error;
   return data as Item;
