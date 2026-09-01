@@ -79,9 +79,9 @@ describe("starHTML — visible empty fill", () => {
     expect(h).not.toContain("#fff8d6");
   });
 
-  it("uses the bumped stroke-width 1.6 on empty stars", () => {
+  it("uses the bumped stroke-width 1.8 on empty stars", () => {
     const h = starHTML(0, "x");
-    expect(h).toContain('stroke-width="1.6"');
+    expect(h).toContain('stroke-width="1.8"');
     expect(h).not.toContain('stroke-width="1.4"');
   });
 });

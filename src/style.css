@@ -322,10 +322,10 @@ main { flex: 1; padding: 18px 22px 150px; }
 
 /* star widget */
 .stars { display: inline-flex; gap: 0; align-items: center; min-width: 0; }
-.stars .star { width: 22px; height: 22px; display: inline-block; cursor: pointer; line-height: 0; }
+.stars .star { width: 18px; height: 18px; display: inline-block; cursor: pointer; line-height: 0; }
 .stars .star svg { display: block; width: 100%; height: 100%; pointer-events: none; }
 .stars .star.empty svg { opacity: 1; }
-.card.todo .stars .star { width: 18px; height: 18px; }
+.card.todo .stars .star { width: 15px; height: 15px; }
 
 /* filter pill + panel */
 .filter-pill {
@@ -394,9 +394,9 @@ main { flex: 1; padding: 18px 22px 150px; }
 .view-bar .filter-panel { width: 100%; margin-bottom: 0; }
 
 /* todo card matches Schedule card height — title on line 1, badge+stars on line 2 */
-.card.todo { padding: 12px 14px; align-items: center; }
+.card.todo { padding: 8px 12px; align-items: center; }
 .card.todo .body { min-width: 0; }
-.card.todo .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
+.card.todo .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
 .card.todo .meta { gap: 6px 8px; }
 
 /* weekday token on schedule event cards */

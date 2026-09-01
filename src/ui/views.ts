@@ -4,7 +4,7 @@ import { colorFor, formatClock } from "../settings";
 
 export const STAR_SYMBOL_ID = "starShape";
 export const STAR_POLYGON = "12,2 14.85,8.5 22,9.3 16.5,14 18,21 12,17.3 6,21 7.5,14 2,9.3 9.15,8.5";
-export const STAR_EMPTY_FILL = "#c4baa6";
+export const STAR_EMPTY_FILL = "#8a7d63";
 
 export function starSymbolHTML(): string {
   return `<svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -35,7 +35,7 @@ export function starHTML(rating: number, itemId: string): string {
       </span>`;
     } else {
       stars += `<span class="star empty" data-item="${itemId}" data-value="${i - 1}" data-pos="${i}">
-        <svg viewBox="0 0 24 24"><use href="#${STAR_SYMBOL_ID}" fill="${STAR_EMPTY_FILL}" stroke="#3a2e10" stroke-width="1.6" stroke-linejoin="round"/></svg>
+        <svg viewBox="0 0 24 24"><use href="#${STAR_SYMBOL_ID}" fill="${STAR_EMPTY_FILL}" stroke="#3a2e10" stroke-width="1.8" stroke-linejoin="round"/></svg>
       </span>`;
     }
   }
