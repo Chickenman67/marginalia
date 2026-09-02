@@ -322,7 +322,7 @@ main { flex: 1; padding: 18px 22px 150px; }
 
 /* star widget */
 .stars { display: inline-flex; gap: 0; align-items: center; min-width: 0; }
-.stars .star { width: 18px; height: 18px; display: inline-block; cursor: pointer; line-height: 0; }
+.stars .star { width: 18px; height: 18px; display: inline-block; cursor: pointer; line-height: 0; padding: 0; color: inherit; text-align: start; font: inherit; }
 .stars .star svg { display: block; width: 100%; height: 100%; pointer-events: none; }
 .stars .star.empty svg { opacity: 1; }
 .card.todo .stars .star { width: 15px; height: 15px; }
