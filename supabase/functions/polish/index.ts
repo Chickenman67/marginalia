@@ -1,8 +1,8 @@
 // Supabase Edge Function: /functions/v1/polish
-// Holds David's NVIDIA key server-side, enforces space-token auth + a global
+// Holds David's NVIDIA key server-side, enforces JWT auth + a per-user
 // rate limit, and forwards a rambling paragraph to NVIDIA's NIM endpoint to be
 // organized into a clean list of discrete tasks/events.
-// Deployed with: supabase functions deploy polish --no-verify-jwt
+// Deployed with: supabase functions deploy polish
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -37,33 +37,28 @@ Deno.serve(async (req) => {
   const ALLOWED_ORIGIN = Deno.env.get("APP_ORIGIN") || "*";
   const cors = {
     "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
-    "Access-Control-Allow-Headers": "content-type, authorization, x-space-token",
+    "Access-Control-Allow-Headers": "content-type, authorization",
     "Access-Control-Allow-Methods": "POST, OPTIONS"
   };
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
 
-  // Require a space token so anonymous demo users can't call unauthenticated.
-  const spaceToken = req.headers.get("x-space-token");
-  if (!spaceToken) {
-    return new Response(JSON.stringify({ error: "missing space token" }), { status: 401, headers: { ...cors, "content-type": "application/json" } });
-  }
-
-  // Split id.secret and validate both halves against the spaces table.
-  const dot = spaceToken.indexOf(".");
-  const spaceId = dot === -1 ? spaceToken : spaceToken.slice(0, dot);
-  const spaceSecret = dot === -1 ? "" : spaceToken.slice(dot + 1);
+  // --- Auth: verify the Supabase JWT from the Authorization header ---
+  const auth = req.headers.get("authorization") ?? "";
+  const m = auth.match(/^Bearer\s+(.+)$/i);
+  if (!m) return new Response("missing bearer token", { status: 401 });
+  const jwt = m[1];
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-  const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
-  const { data: space, error: spErr } = await supabase
-    .from("spaces").select("token").eq("token", spaceId).eq("secret", spaceSecret).maybeSingle();
-  if (spErr || !space) {
-    return new Response(JSON.stringify({ error: "unauthorized space" }), { status: 401, headers: { ...cors, "content-type": "application/json" } });
-  }
+  const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: { headers: { Authorization: `Bearer ${jwt}` } }
+  });
+  const { data: userData, error: userErr } = await supabase.auth.getUser(jwt);
+  if (userErr || !userData?.user) return new Response("invalid token", { status: 401 });
+  const userId = userData.user.id;
 
-  // Durable, per-space rate limit (NVIDIA is free but shared; protect the quota).
+  // Durable, per-user rate limit (NVIDIA is free but shared; protect the quota).
   const { data: allowed, error: rlErr } = await supabase.rpc("check_rate_limit", {
-    p_space: spaceId,
+    p_space: userId,
     p_max: 30,
     p_window_sec: 60
   });
@@ -89,11 +84,6 @@ Deno.serve(async (req) => {
   if (!paragraph) {
     return new Response(JSON.stringify({ error: "empty paragraph" }), { status: 400, headers: { ...cors, "content-type": "application/json" } });
   }
-
-  // keep space token alive (optional, ignores errors)
-  try {
-    await supabase.from("spaces").update({ last_active_at: new Date().toISOString() }).eq("token", spaceId);
-  } catch { /* non-fatal */ }
 
   const nvidiaRes = await fetch(NVIDIA_URL, {
     method: "POST",
