@@ -11,3 +11,6 @@ scripts/sdd.ps1
 
 # stray TS compile output (build uses tsc --noEmit)
 src/**/*.js
+
+# agent auth-bypass helper scripts (created by subsequent tasks in this plan)
+scripts/agent-*.mjs
