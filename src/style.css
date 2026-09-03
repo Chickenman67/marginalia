@@ -408,3 +408,30 @@ main { flex: 1; padding: 18px 22px 150px; }
   margin-right: 4px;
 }
 .weekday::after { content: " · "; color: var(--faint); margin: 0 2px; font-weight: 400; }
+
+/* --- Auth screen --- */
+#authRoot { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: var(--bg, #f6f4ee); }
+#authRoot:empty { display: none; }
+.auth-card { width: 100%; max-width: 380px; background: #fff; border: 1px solid #e4e0d6; border-radius: 12px; padding: 24px; box-shadow: 0 1px 2px rgba(0,0,0,.04); font-family: Inter, system-ui, sans-serif; }
+.auth-card h1 { font-family: "Fraunces", serif; margin: 0 0 4px; font-size: 24px; }
+.auth-tagline { margin: 0 0 16px; color: #5a5a5a; font-size: 14px; }
+.auth-tabs { display: flex; gap: 4px; margin-bottom: 12px; }
+.auth-tab { flex: 1; padding: 8px; background: #f0ece2; border: 1px solid transparent; border-radius: 8px; cursor: pointer; font: inherit; }
+.auth-tab[aria-selected="true"] { background: #fff; border-color: #cfc8b8; }
+.auth-form { display: grid; gap: 8px; margin-bottom: 12px; }
+.auth-form input { padding: 10px 12px; border: 1px solid #d4cebf; border-radius: 8px; font: inherit; }
+.auth-form .btn { margin-top: 4px; }
+.auth-divider { text-align: center; color: #8a8a8a; font-size: 12px; margin: 12px 0; position: relative; }
+.auth-divider span { background: #fff; padding: 0 8px; }
+.auth-divider::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px solid #e4e0d6; z-index: -1; }
+.auth-social { display: grid; gap: 8px; }
+.auth-social .btn { background: #fff; border: 1px solid #d4cebf; }
+.link { background: none; border: 0; color: #3f7d6e; cursor: pointer; padding: 0; margin-top: 8px; font: inherit; }
+.auth-status { min-height: 18px; margin-top: 8px; font-size: 13px; }
+.auth-status.bad { color: #b13a3a; }
+.auth-status.good { color: #2f6b4f; }
+.auth-claim { margin-top: 16px; border-top: 1px solid #e4e0d6; padding-top: 12px; }
+.auth-claim summary { cursor: pointer; font-size: 13px; color: #5a5a5a; }
+.auth-claim p { font-size: 12px; color: #7a7a7a; margin: 6px 0; }
+.auth-claim input { width: 100%; padding: 8px; border: 1px solid #d4cebf; border-radius: 6px; font: inherit; box-sizing: border-box; margin-bottom: 6px; }
+.auth-claim-status { font-size: 12px; min-height: 16px; }

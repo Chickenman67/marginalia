@@ -10,78 +10,66 @@
   <link rel="icon" href="/icon.svg" type="image/svg+xml" />
 </head>
 <body>
-  <div class="app">
-    <header>
-      <h1>Marginalia</h1>
-      <span class="space-chip" id="spaceChip">
-        <span class="dot"></span><span id="spaceLabel">demo</span>
-        <button id="copyToken" title="Copy space token">copy</button>
-      </span>
-      <button id="settingsBtn" class="icon gear-btn" title="Settings (API key, reminders)" aria-label="Settings">⚙</button>
-    </header>
+  <div id="authRoot"></div>
+  <div id="appRoot" hidden>
+    <div class="app">
+      <header>
+        <h1>Marginalia</h1>
+        <span class="space-chip" id="spaceChip">
+          <span class="dot"></span><span id="spaceLabel">demo</span>
+          <button id="copyToken" title="Copy space token">copy</button>
+        </span>
+        <button id="settingsBtn" class="icon gear-btn" title="Settings (API key, reminders)" aria-label="Settings">⚙</button>
+      </header>
 
-    <div class="tabs" role="tablist">
-      <button class="tab" role="tab" aria-selected="true" data-view="schedule">Schedule <span class="count" id="cSched"></span></button>
-      <button class="tab" role="tab" aria-selected="false" data-view="todos">Todos <span class="count" id="cTodo"></span></button>
-      <button class="tab" role="tab" aria-selected="false" data-view="due">Due <span class="count" id="cDue"></span></button>
-    </div>
-
-    <main>
-      <div id="view-schedule">
-        <form class="manual-event" id="addEvent">
-          <input id="evTitle" placeholder="Add to schedule — e.g. Dentist" aria-label="Event title" />
-          <button type="button" class="picker-trigger" id="evDate">Pick a date</button>
-          <button type="button" class="picker-trigger" id="evTimeTrigger">Time</button>
-          <label class="allday"><input type="checkbox" id="evAllDay" /> All day</label>
-          <button class="btn primary" type="submit">Add</button>
-        </form>
-        <div id="scheduleList"></div>
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" aria-selected="true" data-view="schedule">Schedule <span class="count" id="cSched"></span></button>
+        <button class="tab" role="tab" aria-selected="false" data-view="todos">Todos <span class="count" id="cTodo"></span></button>
+        <button class="tab" role="tab" aria-selected="false" data-view="due">Due <span class="count" id="cDue"></span></button>
       </div>
-      <div id="view-todos" hidden></div>
-      <div id="view-due" hidden></div>
-    </main>
 
-    <div class="dock">
-      <div class="dock-inner">
-        <div class="dock-head">
-          <button class="btn toggle" id="dictateToggle" aria-pressed="false">Dictate</button>
+      <main>
+        <div id="view-schedule">
+          <form class="manual-event" id="addEvent">
+            <input id="evTitle" placeholder="Add to schedule — e.g. Dentist" aria-label="Event title" />
+            <button type="button" class="picker-trigger" id="evDate">Pick a date</button>
+            <button type="button" class="picker-trigger" id="evTimeTrigger">Time</button>
+            <label class="allday"><input type="checkbox" id="evAllDay" /> All day</label>
+            <button class="btn primary" type="submit">Add</button>
+          </form>
+          <div id="scheduleList"></div>
         </div>
+        <div id="view-todos" hidden></div>
+        <div id="view-due" hidden></div>
+      </main>
 
-        <div id="quick">
-          <div class="preview" id="preview"><span id="previewText"></span><span class="x" id="previewX">✕</span></div>
-          <div class="bar">
-            <button class="mic" id="mic" title="Speak" aria-label="Speak">🎙</button>
-            <input id="phrase" placeholder="Speak or type — “dentist Tuesday 3pm”, “call mom after lunch”" aria-label="New item" />
-            <button class="btn primary" id="quickAdd">Add</button>
+      <div class="dock">
+        <div class="dock-inner">
+          <div class="dock-head">
+            <button class="btn toggle" id="dictateToggle" aria-pressed="false">Dictate</button>
           </div>
-        </div>
 
-        <div id="dictate" hidden>
-          <textarea id="para" rows="4" placeholder="Ramble away — “dentist Tuesday 3pm, call mom after lunch, pick up groceries tomorrow”"></textarea>
-          <div class="dictate-bar">
-            <button class="mic" id="paraMic" title="Speak" aria-label="Speak">🎙</button>
-            <button class="btn primary" id="process">Process</button>
+          <div id="quick">
+            <div class="preview" id="preview"><span id="previewText"></span><span class="x" id="previewX">✕</span></div>
+            <div class="bar">
+              <button class="mic" id="mic" title="Speak" aria-label="Speak">🎙</button>
+              <input id="phrase" placeholder="Speak or type — “dentist Tuesday 3pm”, “call mom after lunch”" aria-label="New item" />
+              <button class="btn primary" id="quickAdd">Add</button>
+            </div>
           </div>
-          <div id="draft"></div>
+
+          <div id="dictate" hidden>
+            <textarea id="para" rows="4" placeholder="Ramble away — “dentist Tuesday 3pm, call mom after lunch, pick up groceries tomorrow”"></textarea>
+            <div class="dictate-bar">
+              <button class="mic" id="paraMic" title="Speak" aria-label="Speak">🎙</button>
+              <button class="btn primary" id="process">Process</button>
+            </div>
+            <div id="draft"></div>
+          </div>
+
+          <div class="hint" id="hint">Press <span class="kbd">Enter</span> to add · voice works in all modern browsers</div>
+          <div class="demo-note"></div>
         </div>
-
-        <div class="hint" id="hint">Press <span class="kbd">Enter</span> to add · voice works in all modern browsers</div>
-        <div class="demo-note"></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="back" id="tokenModal">
-    <div class="modal">
-      <h2>Your space</h2>
-      <p>A space keeps your tasks private. Copy its token to open the same list on another device, or paste a token to join an existing space.</p>
-      <input id="tokenInput" placeholder="blank = new random space" />
-      <div class="row">
-        <button class="btn" id="tokenNew">New space</button>
-        <button class="btn primary" id="tokenGo">Use this space</button>
-      </div>
-      <div class="row">
-        <button class="btn" id="downloadToken">Download token (.txt)</button>
       </div>
     </div>
   </div>
