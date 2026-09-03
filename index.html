@@ -15,11 +15,14 @@
     <div class="app">
       <header>
         <h1>Marginalia</h1>
-        <span class="space-chip" id="spaceChip">
-          <span class="dot"></span><span id="spaceLabel">demo</span>
-          <button id="copyToken" title="Copy space token">copy</button>
-        </span>
-        <button id="settingsBtn" class="icon gear-btn" title="Settings (API key, reminders)" aria-label="Settings">⚙</button>
+        <div class="user-menu" id="userMenu" tabindex="0">
+          <span class="dot"></span><span id="userEmail">—</span>
+          <div class="user-menu-pop" hidden>
+            <button type="button" id="userSettings">Settings</button>
+            <button type="button" id="userSignOut">Sign out</button>
+          </div>
+        </div>
+        <button id="settingsBtn" class="icon gear-btn" title="Settings" aria-label="Settings">⚙</button>
       </header>
 
       <div class="tabs" role="tablist">

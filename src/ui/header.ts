@@ -1,24 +1,35 @@
-import { isDemoMode, STORAGE_KEYS } from "../config";
-import { getSpaceToken, setSpaceToken, splitToken, combineToken, genTokenPair, getItems } from "../store";
+import { STORAGE_KEYS } from "../config";
 import { getSettings, updateSettings, enableNotifications, type ColorRule } from "../settings";
-import { testProviderKey } from "../supabase";
+import { testProviderKey, updateProfile } from "../supabase";
+import { getSession, signOut } from "../auth";
 import { esc } from "./views";
-import { downloadToken, toCSV, toText, parseFile, applyImport, download } from "../backup";
+import { toCSV, toText, parseFile, applyImport, download } from "../backup";
 import type { ImportRow } from "../backup";
+import { getItems } from "../store";
 
-export function mountHeader(): void {
-  const label = document.getElementById("spaceLabel")!;
-  const chip = document.getElementById("spaceChip")!;
-  const copy = document.getElementById("copyToken")!;
-  label.textContent = getSpaceToken();
+export async function mountHeader(): Promise<void> {
+  const emailEl = document.getElementById("userEmail")!;
+  const userMenu = document.getElementById("userMenu")!;
+  const pop = userMenu.querySelector<HTMLElement>(".user-menu-pop")!;
+  const session = await getSession();
+  emailEl.textContent = session?.user.email ?? "—";
 
-  copy.addEventListener("click", () => {
-    navigator.clipboard?.writeText(getSpaceToken());
-    copy.textContent = "copied";
-    setTimeout(() => (copy.textContent = "copy"), 1200);
+  // Toggle dropdown on click
+  userMenu.addEventListener("click", (e) => {
+    e.stopPropagation();
+    pop.hidden = !pop.hidden;
+  });
+  document.addEventListener("click", () => { pop.hidden = true; });
+
+  document.getElementById("userSignOut")!.addEventListener("click", async () => {
+    await signOut();
+  });
+  document.getElementById("userSettings")!.addEventListener("click", () => {
+    openSettings();
+    pop.hidden = true;
   });
 
-  // settings modal
+  // settings modal — copy existing tab/handlers from the current header.ts verbatim
   const back = document.getElementById("settingsModal")!;
   const tabStrip = back.querySelector<HTMLElement>(".tab-strip")!;
   const panels = Array.from(back.querySelectorAll<HTMLElement>(".spanel"));
@@ -30,6 +41,7 @@ export function mountHeader(): void {
       panels.forEach((p) => (p.hidden = p.dataset.panel !== name));
     };
   });
+
   const apiKey = document.getElementById("apiKey") as HTMLInputElement;
   const provider = document.getElementById("provider") as HTMLSelectElement;
   const setAuto = document.getElementById("setAutoRemind") as HTMLInputElement;
@@ -65,7 +77,6 @@ export function mountHeader(): void {
       withinHours: Math.max(1, Number((row.querySelector(".rule-hours") as HTMLInputElement).value) || 24)
     }));
 
-  // populate from saved settings whenever the modal opens
   const openSettings = () => {
     const s = getSettings();
     apiKey.value = localStorage.getItem(STORAGE_KEYS.llmKey) || "";
@@ -80,17 +91,19 @@ export function mountHeader(): void {
     renderRules(s.colorRules);
     back.classList.add("show");
   };
-  chip.addEventListener("dblclick", openSettings);
   document.getElementById("settingsBtn")!.addEventListener("click", openSettings);
-
   document.getElementById("settingsCancel")!.addEventListener("click", () => back.classList.remove("show"));
   document.getElementById("settingsSave")!.addEventListener("click", async () => {
     localStorage.setItem(STORAGE_KEYS.llmKey, apiKey.value.trim());
     localStorage.setItem(STORAGE_KEYS.provider, provider.value);
-    updateSettings({ autoRemindEvents: setAuto.checked, militaryTime: setMilitary.checked, colorRules: readRules() });
-    updateSettings({
-      autoDelete: (document.getElementById("setAutoDelete") as HTMLInputElement).checked,
-      autoDeleteDays: Math.max(1, Number((document.getElementById("autoDeleteDays") as HTMLInputElement).value) || 30)
+    const userId = (await getSession())!.user.id;
+    await updateProfile(userId, {
+      auto_remind_events: setAuto.checked,
+      military_time: setMilitary.checked,
+      color_rules: readRules(),
+      auto_delete: (document.getElementById("setAutoDelete") as HTMLInputElement).checked,
+      auto_delete_days: Math.max(1, Number((document.getElementById("autoDeleteDays") as HTMLInputElement).value) || 30),
+      provider: provider.value
     });
     if (setNotify.checked) {
       await enableNotifications();
@@ -122,54 +135,7 @@ export function mountHeader(): void {
     keyStatus.className = `key-status ${r.ok ? "good" : "bad"}`;
   });
 
-  // space management: single-click chip opens the token modal (copy / new / join)
-  const tokenModal = document.getElementById("tokenModal")!;
-  const tokenInput = document.getElementById("tokenInput") as HTMLInputElement;
-
-  back.addEventListener("click", (e) => { if (e.target === back) back.classList.remove("show"); });
-  tokenModal.addEventListener("click", (e) => { if (e.target === tokenModal) tokenModal.classList.remove("show"); });
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") { back.classList.remove("show"); tokenModal.classList.remove("show"); }
-  });
-  chip.addEventListener("click", () => {
-    tokenInput.value = getSpaceToken();
-    tokenModal.classList.add("show");
-  });
-
-  // first-run space modal (only meaningful when not demo + token unknown)
-  if (!isDemoMode && !localStorage.getItem(STORAGE_KEYS.spaceToken)) {
-    tokenModal.classList.add("show");
-  }
-  const go = () => {
-    const v = tokenInput.value.trim();
-    if (v) {
-      const { id, secret } = splitToken(v);
-      setSpaceToken(id, secret);
-      label.textContent = v;
-    }
-    tokenModal.classList.remove("show");
-    // Always reload: the Supabase client caches the x-space-token header at
-    // creation, so a changed token requires a fresh client to take effect.
-    location.reload();
-  };
-  document.getElementById("tokenGo")!.addEventListener("click", go);
-  document.getElementById("tokenNew")!.addEventListener("click", () => {
-    const { id, secret } = genTokenPair();
-    setSpaceToken(id, secret);
-    const fresh = combineToken(id, secret);
-    label.textContent = fresh;
-    tokenModal.classList.remove("show");
-    location.reload();
-  });
-  // pressing Enter in the token field also joins
-  tokenInput.addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
-
-  // token download
-  document.getElementById("downloadToken")!.addEventListener("click", () => {
-    downloadToken(getSpaceToken());
-  });
-
-  // --- Backup: export / import ---
+  // Backup
   const exportCsv = document.getElementById("exportCsv") as HTMLButtonElement;
   const exportText = document.getElementById("exportText") as HTMLButtonElement;
   const importFile = document.getElementById("importFile") as HTMLInputElement;
@@ -179,13 +145,8 @@ export function mountHeader(): void {
   const backupStatus = document.getElementById("backupStatus") as HTMLSpanElement;
 
   let pendingRows: ImportRow[] = [];
-
-  exportCsv.addEventListener("click", () => {
-    download(toCSV(getItems()), "marginalia-schedule.csv", "text/csv");
-  });
-  exportText.addEventListener("click", () => {
-    download(toText(getItems()), "marginalia-schedule.txt", "text/plain");
-  });
+  exportCsv.addEventListener("click", () => download(toCSV(getItems()), "marginalia-schedule.csv", "text/csv"));
+  exportText.addEventListener("click", () => download(toText(getItems()), "marginalia-schedule.txt", "text/plain"));
   importFile.addEventListener("change", async () => {
     const file = importFile.files?.[0];
     if (!file) return;

@@ -435,3 +435,10 @@ main { flex: 1; padding: 18px 22px 150px; }
 .auth-claim p { font-size: 12px; color: #7a7a7a; margin: 6px 0; }
 .auth-claim input { width: 100%; padding: 8px; border: 1px solid #d4cebf; border-radius: 6px; font: inherit; box-sizing: border-box; margin-bottom: 6px; }
 .auth-claim-status { font-size: 12px; min-height: 16px; }
+
+/* --- User menu --- */
+.user-menu { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: #f0ece2; border-radius: 999px; font-size: 13px; cursor: pointer; position: relative; outline: none; }
+.user-menu .dot { width: 6px; height: 6px; background: #3f7d6e; border-radius: 50%; display: inline-block; }
+.user-menu-pop { position: absolute; top: 100%; right: 0; margin-top: 4px; background: #fff; border: 1px solid #d4cebf; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,.08); display: grid; min-width: 140px; z-index: 10; }
+.user-menu-pop button { background: none; border: 0; padding: 8px 12px; text-align: left; font: inherit; cursor: pointer; }
+.user-menu-pop button:hover { background: #f6f4ee; }
