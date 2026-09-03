@@ -38,6 +38,17 @@ screen to attach their old data.
 
 ## Supabase dashboard config (one-time, manual)
 
+For most users, the easiest path is the interactive setup wizard:
+
+```bash
+bash scripts/setup-signin.sh
+```
+
+It opens each dashboard URL in the right order, tells you exactly what to
+click, captures the Client IDs and Secrets, and writes your `.env`.
+
+If you'd rather do it by hand, the steps are below.
+
 For project `PROJECT_REF`:
 
 1. **Authentication → Providers:** enable Email (default), Google (paste client
