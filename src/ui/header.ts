@@ -1,6 +1,6 @@
 import { STORAGE_KEYS } from "../config";
 import { getSettings, updateSettings, enableNotifications, type ColorRule } from "../settings";
-import { testProviderKey, updateProfile } from "../supabase";
+import { testProviderKey } from "../supabase";
 import { getSession, signOut } from "../auth";
 import { esc } from "./views";
 import { toCSV, toText, parseFile, applyImport, download } from "../backup";
@@ -96,14 +96,12 @@ export async function mountHeader(): Promise<void> {
   document.getElementById("settingsSave")!.addEventListener("click", async () => {
     localStorage.setItem(STORAGE_KEYS.llmKey, apiKey.value.trim());
     localStorage.setItem(STORAGE_KEYS.provider, provider.value);
-    const userId = (await getSession())!.user.id;
-    await updateProfile(userId, {
-      auto_remind_events: setAuto.checked,
-      military_time: setMilitary.checked,
-      color_rules: readRules(),
-      auto_delete: (document.getElementById("setAutoDelete") as HTMLInputElement).checked,
-      auto_delete_days: Math.max(1, Number((document.getElementById("autoDeleteDays") as HTMLInputElement).value) || 30),
-      provider: provider.value
+    await updateSettings({
+      autoRemindEvents: setAuto.checked,
+      militaryTime: setMilitary.checked,
+      colorRules: readRules(),
+      autoDelete: (document.getElementById("setAutoDelete") as HTMLInputElement).checked,
+      autoDeleteDays: Math.max(1, Number((document.getElementById("autoDeleteDays") as HTMLInputElement).value) || 30)
     });
     if (setNotify.checked) {
       await enableNotifications();
