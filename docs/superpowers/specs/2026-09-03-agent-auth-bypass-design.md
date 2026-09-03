@@ -1,7 +1,7 @@
 # Agent Auth Bypass via Playwright Storage State — Design
 
 **Date:** 2026-09-03
-**Status:** Draft (pending user review)
+**Status:** Approved (pending user review of written spec)
 
 ## Problem
 

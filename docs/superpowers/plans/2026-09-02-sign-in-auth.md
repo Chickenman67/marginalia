@@ -164,11 +164,12 @@ drop trigger if exists items_cap on public.items;
 create trigger items_cap before insert on public.items
   for each row execute function public.enforce_item_cap();
 
--- 6) Backfill: any rows whose space_token was not claimed get a ghost UUID.
---    The client filters this UUID out so the user never sees ghost rows.
-update public.items
-   set user_id = '00000000-0000-0000-0000-000000000000'::uuid
- where user_id is null;
+-- 6) Backfill: any rows whose space_token was not claimed are deleted.
+--    We cannot keep them as orphans because user_id has a FK to auth.users,
+--    and Supabase does not let SQL create auth.users rows. Items whose
+--    owner never claimed the token are abandoned. Acceptable data loss
+--    for v1; export/import gives users a backup path.
+delete from public.items where user_id is null;
 
 alter table public.items alter column user_id set not null;
 
