@@ -8,6 +8,11 @@
       "environment": {
         "SUPABASE_ACCESS_TOKEN": "{env:SUPABASE_ACCESS_TOKEN}"
       }
+    },
+    "playwright": {
+      "type": "local",
+      "command": ["npx", "-y", "@playwright/mcp@latest", "--storage-state", "C:\\\\Users\\\\david\\\\.config\\\\opencode\\\\todoapp-agent-storage.json"],
+      "enabled": true
     }
   }
 }
