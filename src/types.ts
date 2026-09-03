@@ -2,7 +2,7 @@ export type ItemKind = "todo" | "event";
 
 export interface Item {
   id: string;
-  space_token: string;
+  user_id: string;
   kind: ItemKind;
   title: string;
   datetime: string | null; // ISO 8601 for events; null for todos
