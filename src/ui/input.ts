@@ -1,5 +1,4 @@
-import { isDemoMode } from "../config";
-import { addItem, getSpaceId, getSpaceToken, subscribe, deleteItem, setItems } from "../store";
+import { addItem, getSpaceId, getSpaceToken, subscribe, deleteItem, setItems, isDemoMode } from "../store";
 import { parsePhrase, polishPhrase, updateItem } from "../supabase";
 import { createSpeech } from "../speech";
 import { cardHTML, bindCardEvents, groupByDay, esc, applyViewV2, starClickValue, type ScheduleState, type TodosState, type DueState } from "./views";

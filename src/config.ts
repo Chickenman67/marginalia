@@ -4,7 +4,6 @@ export interface AppConfig {
   parseFunction: string;
 }
 
-// Read from Vite env (set in .env or hosting dashboard). Empty values => demo mode (localStorage only).
 const env = import.meta.env;
 
 export const config: AppConfig = {
@@ -15,10 +14,7 @@ export const config: AppConfig = {
     : ""
 };
 
-export const isDemoMode = !config.supabaseUrl;
-
 export const STORAGE_KEYS = {
-  spaceToken: "marginalia.spaceToken",
   llmKey: "scheduleapp.llmKey",
   provider: "scheduleapp.provider"
 };
