@@ -24,10 +24,6 @@ export function download(content: string, filename: string, mime: string): void 
   URL.revokeObjectURL(url);
 }
 
-export function downloadToken(token: string): void {
-  download(token, "marginalia-space-token.txt", "text/plain");
-}
-
 function csvCell(v: string | null): string {
   if (v === null) return "";
   if (/[",\n]/.test(v)) return `"${v.replace(/"/g, '""')}"`;
