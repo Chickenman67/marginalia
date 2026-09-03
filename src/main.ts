@@ -6,9 +6,8 @@ import { mountInput, mountViews } from "./ui/input";
 import { fireNotifications, resetNotified } from "./reminders";
 import { starSymbolHTML } from "./ui/views";
 import type { Item } from "./types";
-import { getSession, onAuthChange } from "./auth";
+import { onAuthChange } from "./auth";
 import { mountAuthScreen, unmountAuthScreen } from "./ui/authScreen";
-import { fetchProfile } from "./supabase";
 
 const authRoot = document.getElementById("authRoot")!;
 const appRoot = document.getElementById("appRoot")!;
@@ -21,10 +20,6 @@ async function bootApp() {
   mountInput();
   mountViews();
 
-  const session = await getSession();
-  if (session) {
-    try { await fetchProfile(session.user.id); } catch { /* first run; trigger will create one */ }
-  }
   await loadItems();
   await subscribeRealtime();
 
@@ -58,6 +53,8 @@ function showApp() {
   authRoot.hidden = true;
   appRoot.hidden = false;
   // location.reload would be heavier; instead, kick off a fresh boot.
+  // (authScreen.ts uses a hard reload after a token claim because the
+  // claim changes the active user_id; in-app sign-in/out keeps it.)
   bootApp();
 }
 
