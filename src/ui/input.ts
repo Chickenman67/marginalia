@@ -1,4 +1,4 @@
-import { addItem, getSpaceId, getSpaceToken, subscribe, deleteItem, setItems, isDemoMode } from "../store";
+import { addItem, subscribe, deleteItem, setItems } from "../store";
 import { parsePhrase, polishPhrase, updateItem } from "../supabase";
 import { createSpeech } from "../speech";
 import { cardHTML, bindCardEvents, groupByDay, esc, applyViewV2, starClickValue, type ScheduleState, type TodosState, type DueState } from "./views";
@@ -91,7 +91,7 @@ export function mountInput(): void {
     } else {
       parsed = guess(text);
     }
-    await addItem(parsed, getSpaceToken());
+    await addItem(parsed);
     phraseEl.value = "";
     preview.classList.remove("show");
     draft = null;
@@ -182,7 +182,7 @@ export function mountInput(): void {
 
   async function addAll() {
     for (const i of currentDraft) {
-      await addItem({ title: i.title, kind: i.kind, datetime: i.datetime, reminder: i.reminder }, getSpaceId());
+      await addItem({ title: i.title, kind: i.kind, datetime: i.datetime, reminder: i.reminder });
     }
     el<HTMLTextAreaElement>("#para").value = "";
     el<HTMLDivElement>("#draft").innerHTML = "";
@@ -427,7 +427,7 @@ form.addEventListener("submit", async (e) => {
   const when = allDay ? `${pickedDate}T00:00:00` : `${pickedDate}T${pickedTime || "09:00"}:00`;
   const iso = localToISO(when);
   if (!iso) return;
-  await addItem({ title, kind: "event", datetime: iso, reminder: null }, getSpaceId());
+  await addItem({ title, kind: "event", datetime: iso, reminder: null });
   el<HTMLInputElement>("#evTitle").value = "";
 });
 
@@ -438,7 +438,7 @@ async function setRating(id: string, rating: number, items: Item[]) {
   const local = items.map((x) => (x.id === id ? { ...x, rating } : x));
   setItems(local);
   try {
-    if (!isDemoMode) await updateItem(id, { rating });
+    await updateItem(id, { rating });
   } catch (err) {
     setItems(items.map((x) => (x.id === id ? { ...x, rating: previous } : x)));
     showNotice("Couldn't save rating — try again.");
