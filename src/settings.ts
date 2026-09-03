@@ -59,6 +59,7 @@ export function getSettings(): Settings {
 
 export async function updateSettings(patch: Partial<Settings>): Promise<void> {
   cache = { ...getSettings(), ...patch };
+  notifyListeners();
   const session = await getSession();
   if (!session) return;
   const map: Record<string, any> = {
@@ -93,3 +94,55 @@ export async function enableNotifications(): Promise<boolean> {
 // Re-export for the provider/key kept in localStorage.
 export function getLlmKey(): string { return localStorage.getItem(STORAGE_KEYS.llmKey) || ""; }
 export function getProvider(): string { return localStorage.getItem(STORAGE_KEYS.provider) || "nvidia"; }
+
+// Color applied to future items that fall beyond every rule's window, so they
+// are never left colorless.
+export const FAR_FUTURE_COLOR = "#3f7d6e";
+
+// Lets the views re-render live when a time/color setting changes.
+type SettingsListener = (s: Settings) => void;
+const settingsListeners = new Set<SettingsListener>();
+export function subscribeSettings(fn: SettingsListener): () => void {
+  settingsListeners.add(fn);
+  return () => settingsListeners.delete(fn);
+}
+
+function notifyListeners() {
+  settingsListeners.forEach((fn) => fn(cache!));
+}
+
+// Returns the hex color for an item due at `iso`, or null if no rule matches.
+export function colorFor(iso: string | null): string | null {
+  if (!iso) return null;
+  const due = new Date(iso).getTime();
+  if (isNaN(due)) return null;
+  const now = Date.now();
+  const hours = (due - now) / 3.6e6;
+  if (hours < 0) return null;
+  const s = getSettings();
+  let best: ColorRule | null = null;
+  for (const r of s.colorRules) {
+    if (hours <= r.withinHours && (!best || r.withinHours < best.withinHours)) best = r;
+  }
+  if (best) return best.color;
+  return FAR_FUTURE_COLOR;
+}
+
+// Formats an ISO datetime as a clock string honoring the user's 24h/military setting.
+export function formatClock(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const s = getSettings();
+  const opts: Intl.DateTimeFormatOptions = { hour: "2-digit", minute: "2-digit", hour12: !s.militaryTime };
+  return d.toLocaleTimeString(undefined, opts);
+}
+
+export function notificationsAllowed(): boolean {
+  const s = getSettings();
+  return (
+    s.browserNotifications &&
+    typeof Notification !== "undefined" &&
+    Notification.permission === "granted"
+  );
+}
