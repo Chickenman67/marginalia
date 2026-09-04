@@ -12,14 +12,42 @@ export async function mountHeader(): Promise<void> {
   const userMenu = document.getElementById("userMenu")!;
   const pop = userMenu.querySelector<HTMLElement>(".user-menu-pop")!;
   const session = await getSession();
-  emailEl.textContent = session?.user.email ?? "—";
+  const email = session?.user.email ?? "—";
+  emailEl.textContent = email;
+  // The user-menu chip collapses to an icon on phones (<480px) so the email
+  // hides in the header but should still be visible in the popover when the
+  // user opens it to sign out / change settings.
+  if (!pop.querySelector(".pop-email")) {
+    const popEmail = document.createElement("div");
+    popEmail.className = "pop-email";
+    popEmail.textContent = email;
+    pop.insertBefore(popEmail, pop.firstChild);
+  }
 
-  // Toggle dropdown on click
+  // Toggle dropdown on click. Only treat clicks on the menu *trigger* (the chip
+  // surface) as a toggle — clicks on the popover contents should NOT close the
+  // popover (otherwise it closes before the user can click Settings/Sign out).
   userMenu.addEventListener("click", (e) => {
+    if (pop.contains(e.target as Node)) return;
     e.stopPropagation();
     pop.hidden = !pop.hidden;
+    userMenu.classList.toggle("is-open", !pop.hidden);
   });
-  document.addEventListener("click", () => { pop.hidden = true; });
+  // Close when clicking anywhere outside, including clicks on popover items.
+  document.addEventListener("click", (e) => {
+    if (!pop.hidden && !userMenu.contains(e.target as Node)) {
+      pop.hidden = true;
+      userMenu.classList.remove("is-open");
+    }
+  });
+  // Keyboard: close on Escape (the popover is already reachable via Tab).
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !pop.hidden) {
+      pop.hidden = true;
+      userMenu.classList.remove("is-open");
+      userMenu.focus();
+    }
+  });
 
   document.getElementById("userSignOut")!.addEventListener("click", async () => {
     await signOut();

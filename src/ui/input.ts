@@ -252,8 +252,12 @@ export function mountViews(): void {
   const dueState: DueState = { search: "", filters: { dueWindow: "now", kind: "all" }, sort: "date", dir: "asc" };
 
   // Each view gets a top "bar" (filter pill + panel) and a "cards" container
-  // (rendered by renderAll). The bar is not touched by re-renders.
+  // (rendered by renderAll). The bar is not touched by re-renders. mountViews
+  // can be called more than once (e.g. on auth state change), so we wipe any
+  // previously injected children first — otherwise 4 "Filter & sort" pills
+  // pile up in each view.
   for (const v of [vSched, vTodo, vDue]) {
+    v.querySelectorAll(".view-bar, .view-cards").forEach((c) => c.remove());
     const bar = document.createElement("div");
     bar.className = "view-bar";
     const cards = document.createElement("div");
@@ -269,6 +273,9 @@ export function mountViews(): void {
 
   // Selection mode
   const selected = new Set<string>();
+  // Idempotency: remove any toolbar from a prior mountViews() call before
+  // appending a fresh one. Otherwise every auth-state bump adds another toolbar.
+  document.querySelectorAll(".sel-toolbar").forEach((el) => el.remove());
   const toolbar = document.createElement("div");
   toolbar.className = "sel-toolbar";
   toolbar.innerHTML = `<span class="count">0 selected</span>
@@ -281,8 +288,15 @@ export function mountViews(): void {
   selBtn.className = "btn toggle";
   selBtn.id = "selMode";
   selBtn.textContent = "Select";
-  // Attach Select button into each panel's sort row so it follows the pill
+  // Attach Select button into each panel's sort row so it follows the pill.
+  // Remove any previously injected Select buttons (left over from prior
+  // mountViews calls) before injecting a fresh one, so we end up with exactly
+  // one per panel.
+  document.querySelectorAll(".filter-panel .sort-row button.toggle").forEach((b) => {
+    if (b.id !== "selMode") b.remove();
+  });
   document.querySelectorAll(".filter-panel .sort-row").forEach((row) => {
+    if (row.querySelector("button.toggle")) return;
     const clone = selBtn.cloneNode(true) as HTMLButtonElement;
     clone.id = "";
     row.appendChild(clone);
