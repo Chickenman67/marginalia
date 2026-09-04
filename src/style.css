@@ -14,7 +14,8 @@
   --danger: #b4452f;
   --shadow: 0 1px 2px rgba(35,32,27,.04), 0 8px 24px rgba(35,32,27,.05);
   --r: 12px;
-  --maxw: 760px;
+  --maxw: 760px;       /* inner text/cards column */
+  --shellw: 1200px;     /* outer shell: header bar + dock + content padding */
   --star-fill: #f5c518;
   --star-empty: #c4baa6;  /* muted gray-brown, clearly visible against cream card bg */
   --star-stroke: #3a2e10;
@@ -24,11 +25,11 @@ html, body { margin: 0; min-height: 100%; }
 body {
   background: var(--paper); color: var(--ink);
   font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  font-size: 15px; line-height: 1.5; display: flex; justify-content: center;
+  font-size: 15px; line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
-.app { width: 100%; max-width: var(--maxw); min-height: 100vh; display: flex; flex-direction: column; }
+.app { width: 100%; max-width: var(--shellw); min-height: 100vh; margin: 0 auto; display: flex; flex-direction: column; }
 
 header { padding: 22px 22px 0; display: flex; align-items: baseline; gap: 12px; flex-wrap: nowrap; }
 header h1 { font-family: "Fraunces", Georgia, serif; font-weight: 500; font-size: 26px; letter-spacing: -.01em; margin: 0; flex: 0 0 auto; }
@@ -108,9 +109,9 @@ main { flex: 1; padding: 18px 22px 150px; }
   box-sizing: border-box;
 }
 .dock-inner {
-  width: 100%; max-width: var(--maxw); pointer-events: auto;
+  width: 100%; max-width: 1100px; pointer-events: auto;
   background: var(--panel); border: 1px solid var(--line); border-radius: 18px;
-  padding: 14px; box-shadow: 0 12px 40px rgba(35,32,27,.12);
+  padding: 14px 18px; box-shadow: 0 12px 40px rgba(35,32,27,.12);
   box-sizing: border-box;
 }
 .dock-head { display: flex; justify-content: flex-start; margin-bottom: 11px; }
