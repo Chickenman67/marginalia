@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -7,6 +7,7 @@ import keytar from "keytar";
 const SERVICE = "todoapp-agent-test";
 const EMAIL = "vitest-agent@example.invalid";
 const PASSWORD = "vitest-password-1234";
+const PROJECT_REF = "PROJECT_REF";
 
 beforeAll(async () => {
   await keytar.deletePassword(SERVICE, EMAIL).catch(() => {});
@@ -44,7 +45,7 @@ describe("agent auth: storage-state shape", () => {
           origin: "http://localhost:5173",
           localStorage: [
             {
-              name: "sb-PROJECT_REF-auth-token",
+              name: `sb-${PROJECT_REF}-auth-token`,
               value: JSON.stringify({
                 access_token: "fake-access",
                 refresh_token: "fake-refresh",
@@ -67,5 +68,47 @@ describe("agent auth: storage-state shape", () => {
     expect(parsed.refresh_token).toBeTruthy();
     expect(parsed.expires_at).toBeGreaterThan(0);
     await fs.unlink(tmp);
+  });
+});
+
+describe("agent auth: refresh deletes pre-existing storage file", () => {
+  it("calls fs.unlink once with the storage path before writing a new one", async () => {
+    vi.resetModules();
+    const unlink = vi.fn().mockResolvedValue(undefined);
+    vi.doMock("node:fs", () => ({
+      promises: {
+        unlink,
+        mkdir: vi.fn().mockResolvedValue(undefined),
+        writeFile: vi.fn().mockResolvedValue(undefined),
+        readFile: vi.fn().mockResolvedValue("{}")
+      }
+    }));
+    vi.doMock("playwright", () => ({
+      chromium: {
+        launch: vi.fn().mockRejectedValue(new Error("refresh test: chromium launch intentionally short-circuited"))
+      }
+    }));
+    vi.doMock("keytar", () => ({
+      default: {
+        findCredentials: vi.fn().mockResolvedValue([
+          { account: EMAIL, password: PASSWORD }
+        ])
+      }
+    }));
+
+    const STORAGE = path.join(os.homedir(), ".config", "opencode", "todoapp-agent-storage.json");
+    try {
+      await import("../../scripts/agent-refresh.mjs");
+    } catch {
+      // expected — the chromium launch mock rejects to skip the login flow
+    }
+
+    expect(unlink).toHaveBeenCalledTimes(1);
+    expect(unlink).toHaveBeenCalledWith(STORAGE);
+
+    vi.doUnmock("node:fs");
+    vi.doUnmock("playwright");
+    vi.doUnmock("keytar");
+    vi.resetModules();
   });
 });
