@@ -1,5 +1,5 @@
 import { STORAGE_KEYS } from "../config";
-import { getSettings, updateSettings, enableNotifications, type ColorRule } from "../settings";
+import { getSettings, updateSettings, enableNotifications, type ColorRule, DEFAULT_COLOR_RULES, nextColorForNewRule } from "../settings";
 import { testProviderKey } from "../supabase";
 import { getSession, signOut } from "../auth";
 import { esc } from "./views";
@@ -119,6 +119,13 @@ export async function mountHeader(): Promise<void> {
     keyStatus.textContent = "";
     keyStatus.className = "key-status";
     renderRules(s.colorRules);
+    // First-time seed: if the user has never saved color rules, plant the
+    // three default ones. Persisted to Supabase so the next mount sees them.
+    if (s.colorRules.length === 0) {
+      const seeded = DEFAULT_COLOR_RULES;
+      renderRules(seeded);
+      updateSettings({ colorRules: seeded });
+    }
     back.classList.add("show");
   };
   document.getElementById("settingsBtn")!.addEventListener("click", openSettings);
@@ -150,7 +157,13 @@ export async function mountHeader(): Promise<void> {
       color: (row.querySelector(".rule-color") as HTMLInputElement).value,
       withinHours: Number((row.querySelector(".rule-hours") as HTMLInputElement).value) || 24
     }));
-    cur.push({ id: `r-${crypto.randomUUID().slice(0, 8)}`, label: "New rule", color: "#3f7d6e", withinHours: 72 });
+    const existingColors = cur.map((r) => r.color);
+    cur.push({
+      id: `r-${crypto.randomUUID().slice(0, 8)}`,
+      label: "New rule",
+      color: nextColorForNewRule(existingColors),
+      withinHours: 72
+    });
     renderRules(cur);
   });
 
