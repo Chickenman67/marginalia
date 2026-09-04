@@ -120,17 +120,29 @@ function notifyListeners() {
 }
 
 // Returns the hex color for an item due at `iso`, or null if no rule matches.
+// For past items (hours < 0), the rule with the *largest* withinHours whose
+// window we are still inside of wins. Rules with withinHours >= 0 are the
+// "future" rules; for overdue items we keep returning the most-specific rule
+// that already painted this item while it was still upcoming, so the color
+// doesn't snap to "far future" the moment an item goes overdue.
 export function colorFor(iso: string | null): string | null {
   if (!iso) return null;
   const due = new Date(iso).getTime();
   if (isNaN(due)) return null;
   const now = Date.now();
   const hours = (due - now) / 3.6e6;
-  if (hours < 0) return null;
   const s = getSettings();
+  // Sort rules ascending by withinHours. For future items, the smallest window
+  // that still contains the item wins (most specific). For past items, the
+  // largest window whose boundary we have already crossed wins.
+  const sorted = [...s.colorRules].sort((a, b) => a.withinHours - b.withinHours);
   let best: ColorRule | null = null;
-  for (const r of s.colorRules) {
-    if (hours <= r.withinHours && (!best || r.withinHours < best.withinHours)) best = r;
+  for (const r of sorted) {
+    if (hours < 0) {
+      if (r.withinHours >= Math.abs(hours)) best = r;
+    } else {
+      if (hours <= r.withinHours) best = r;
+    }
   }
   if (best) return best.color;
   return FAR_FUTURE_COLOR;
@@ -153,4 +165,23 @@ export function notificationsAllowed(): boolean {
     typeof Notification !== "undefined" &&
     Notification.permission === "granted"
   );
+}
+
+// Default starter set for the Colors tab. Seeded on first open only.
+export const DEFAULT_COLOR_RULES: ColorRule[] = [
+  { id: "r-overdue",  label: "Overdue",   color: "#b4452f", withinHours: 0 },
+  { id: "r-today",    label: "Today",     color: "#d28c2a", withinHours: 24 },
+  { id: "r-thisweek", label: "This week", color: "#3f7d6e", withinHours: 168 }
+];
+
+// Palette the "+ Add color rule" button cycles through so consecutive adds
+// never produce the same color twice (until the palette is exhausted).
+const ADD_RULE_PALETTE = ["#b4452f", "#d28c2a", "#3f7d6e", "#6c63ff", "#c64a8e", "#4a8ec6"];
+
+export function nextColorForNewRule(existingColors: string[]): string {
+  const used = new Set(existingColors.map((c) => c.toLowerCase()));
+  for (const c of ADD_RULE_PALETTE) {
+    if (!used.has(c.toLowerCase())) return c;
+  }
+  return ADD_RULE_PALETTE[0];
 }
