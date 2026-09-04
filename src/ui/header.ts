@@ -114,6 +114,8 @@ export async function mountHeader(): Promise<void> {
     setNotify.checked = s.browserNotifications && typeof Notification !== "undefined" && Notification.permission === "granted";
     (document.getElementById("setAutoDelete") as HTMLInputElement).checked = s.autoDelete;
     (document.getElementById("autoDeleteDays") as HTMLInputElement).value = String(s.autoDeleteDays);
+    (document.getElementById("setDueIncludeOverdue") as HTMLInputElement).checked = s.dueIncludeOverdue;
+    (document.getElementById("setDueDaysAhead") as HTMLInputElement).value = String(s.dueDaysAhead);
     keyStatus.textContent = "";
     keyStatus.className = "key-status";
     renderRules(s.colorRules);
@@ -129,7 +131,9 @@ export async function mountHeader(): Promise<void> {
       militaryTime: setMilitary.checked,
       colorRules: readRules(),
       autoDelete: (document.getElementById("setAutoDelete") as HTMLInputElement).checked,
-      autoDeleteDays: Math.max(1, Number((document.getElementById("autoDeleteDays") as HTMLInputElement).value) || 30)
+      autoDeleteDays: Math.max(1, Number((document.getElementById("autoDeleteDays") as HTMLInputElement).value) || 30),
+      dueIncludeOverdue: (document.getElementById("setDueIncludeOverdue") as HTMLInputElement).checked,
+      dueDaysAhead: Math.max(1, Math.min(365, Number((document.getElementById("setDueDaysAhead") as HTMLInputElement).value) || 7))
     });
     if (setNotify.checked) {
       await enableNotifications();
