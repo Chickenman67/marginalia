@@ -11,7 +11,7 @@
     },
     "playwright": {
       "type": "local",
-      "command": ["npx", "-y", "@playwright/mcp@latest", "--storage-state", "C:\\\\Users\\\\david\\\\.config\\\\opencode\\\\todoapp-agent-storage.json"],
+      "command": ["npx", "-y", "@playwright/mcp@latest", "--isolated", "--storage-state", "C:\\\\Users\\\\david\\\\.config\\\\opencode\\\\todoapp-agent-storage.json"],
       "enabled": true
     }
   }
