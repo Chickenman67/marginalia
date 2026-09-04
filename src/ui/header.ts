@@ -42,10 +42,15 @@ export async function mountHeader(): Promise<void> {
   });
   // Keyboard: close on Escape (the popover is already reachable via Tab).
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && !pop.hidden) {
+    if (e.key !== "Escape") return;
+    if (!pop.hidden) {
       pop.hidden = true;
       userMenu.classList.remove("is-open");
       userMenu.focus();
+      return;
+    }
+    if (back.classList.contains("show")) {
+      back.classList.remove("show");
     }
   });
 
@@ -130,6 +135,9 @@ export async function mountHeader(): Promise<void> {
   };
   document.getElementById("settingsBtn")!.addEventListener("click", openSettings);
   document.getElementById("settingsCancel")!.addEventListener("click", () => back.classList.remove("show"));
+  back.addEventListener("click", (e) => {
+    if (e.target === back) back.classList.remove("show");
+  });
   document.getElementById("settingsSave")!.addEventListener("click", async () => {
     localStorage.setItem(STORAGE_KEYS.llmKey, apiKey.value.trim());
     localStorage.setItem(STORAGE_KEYS.provider, provider.value);
