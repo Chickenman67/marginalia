@@ -16,6 +16,8 @@ export interface Settings {
   autoDeleteDays: number;
   colorRules: ColorRule[];
   browserNotifications: boolean;
+  dueIncludeOverdue: boolean;
+  dueDaysAhead: number;
 }
 
 let cache: Settings | null = null;
@@ -34,7 +36,9 @@ export async function loadSettings(): Promise<Settings> {
       autoDelete: p.auto_delete,
       autoDeleteDays: p.auto_delete_days,
       colorRules: p.color_rules ?? [],
-      browserNotifications: typeof Notification !== "undefined" && Notification.permission === "granted"
+      browserNotifications: typeof Notification !== "undefined" && Notification.permission === "granted",
+      dueIncludeOverdue: p.due_include_overdue ?? true,
+      dueDaysAhead: p.due_days_ahead ?? 7
     };
   } catch {
     cache = defaults();
@@ -42,14 +46,16 @@ export async function loadSettings(): Promise<Settings> {
   return cache;
 }
 
-function defaults(): Settings {
+export function defaults(): Settings {
   return {
     autoRemindEvents: true,
     militaryTime: false,
     autoDelete: false,
     autoDeleteDays: 30,
     colorRules: [],
-    browserNotifications: false
+    browserNotifications: false,
+    dueIncludeOverdue: true,
+    dueDaysAhead: 7
   };
 }
 
@@ -67,7 +73,9 @@ export async function updateSettings(patch: Partial<Settings>): Promise<void> {
     militaryTime: "military_time",
     autoDelete: "auto_delete",
     autoDeleteDays: "auto_delete_days",
-    colorRules: "color_rules"
+    colorRules: "color_rules",
+    dueIncludeOverdue: "due_include_overdue",
+    dueDaysAhead: "due_days_ahead"
   };
   const profilePatch: Record<string, any> = {};
   for (const [k, v] of Object.entries(patch)) {

@@ -21,6 +21,8 @@ export interface Profile {
   military_time: boolean;
   auto_delete: boolean;
   auto_delete_days: number;
+  due_include_overdue: boolean;
+  due_days_ahead: number;
   provider: string;
   updated_at: string;
 }
