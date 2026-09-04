@@ -8,7 +8,7 @@ type SortOpt = { value: string; label: string; dir: "asc" | "desc" };
 const DEFAULTS: Record<string, AnyState> = {
   schedule: { search: "", filters: { timeRange: "all", status: "all" }, sort: "date", dir: "asc" },
   todos: { search: "", filters: { priority: "all", status: "all" }, sort: "priority", dir: "desc" },
-  due: { search: "", filters: { dueWindow: "now", kind: "all" }, sort: "date", dir: "asc" }
+  due: { search: "", filters: { dueWindow: "week", kind: "all" }, sort: "date", dir: "asc" }
 };
 
 const CHIPS: Record<string, ChipsDef[]> = {
@@ -44,7 +44,8 @@ const CHIPS: Record<string, ChipsDef[]> = {
     { row: "Time", key: "dueWindow", options: [
       { value: "overdue", label: "Overdue" },
       { value: "now", label: "Due now" },
-      { value: "today", label: "Due today" }
+      { value: "today", label: "Due today" },
+      { value: "week", label: "This week" }
     ]},
     { row: "Kind", key: "kind", options: [
       { value: "all", label: "All" },

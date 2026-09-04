@@ -1,6 +1,6 @@
 import type { Item } from "../types";
 import { toggleDone, deleteItem, togglePin } from "../store";
-import { colorFor, formatClock } from "../settings";
+import { colorFor, formatClock, getSettings } from "../settings";
 
 export const STAR_SYMBOL_ID = "starShape";
 export const STAR_POLYGON = "12,2 14.85,8.5 22,9.3 16.5,14 18,21 12,17.3 6,21 7.5,14 2,9.3 9.15,8.5";
@@ -79,7 +79,7 @@ export type TodosState = {
 
 export type DueState = {
   search: string;
-  filters: { dueWindow: "overdue" | "now" | "today"; kind: "all" | "event" | "todo" };
+  filters: { dueWindow: "overdue" | "now" | "today" | "week"; kind: "all" | "event" | "todo" };
   sort: "date" | "title";
   dir: Dir;
 };
@@ -170,13 +170,26 @@ export function applyViewV2(items: Item[], state: V2State): Item[] {
       }
       // dueWindow (Due)
       if (f.dueWindow) {
-        if (!i.reminder) return false;
-        const r = new Date(i.reminder).getTime();
+        // Resolve the time to compare: reminder takes priority, then datetime.
+        const r = i.reminder
+          ? new Date(i.reminder).getTime()
+          : i.datetime
+          ? new Date(i.datetime).getTime()
+          : null;
+        if (r === null) return false;
+        if (isNaN(r)) return false;
         const now = Date.now();
         const todayEnd = (() => { const d = new Date(); d.setHours(23, 59, 59, 999); return d.getTime(); })();
         if (f.dueWindow === "overdue" && r >= now) return false;
         if (f.dueWindow === "now" && (r < now - 5 * 60_000 || r > now + 5 * 60_000)) return false;
         if (f.dueWindow === "today" && (r < now || r > todayEnd)) return false;
+        if (f.dueWindow === "week") {
+          const settings = getSettings();
+          const daysAheadMs = settings.dueDaysAhead * 86_400_000;
+          const overdueOk = settings.dueIncludeOverdue && r < now;
+          const inWindow = r >= now && r <= now + daysAheadMs;
+          if (!overdueOk && !inWindow) return false;
+        }
       }
       // kind (Due)
       if (f.kind && f.kind !== "all" && i.kind !== f.kind) return false;

@@ -249,7 +249,7 @@ export function mountViews(): void {
   // Per-view state (initial defaults; user changes flow through onChange).
   const scheduleState: ScheduleState = { search: "", filters: { timeRange: "all", status: "all" }, sort: "date", dir: "asc" };
   const todosState: TodosState = { search: "", filters: { priority: "all", status: "all" }, sort: "priority", dir: "desc" };
-  const dueState: DueState = { search: "", filters: { dueWindow: "now", kind: "all" }, sort: "date", dir: "asc" };
+  const dueState: DueState = { search: "", filters: { dueWindow: "week", kind: "all" }, sort: "date", dir: "asc" };
 
   // Each view gets a top "bar" (filter pill + panel) and a "cards" container
   // (rendered by renderAll). The bar is not touched by re-renders. mountViews
@@ -381,8 +381,10 @@ export function mountViews(): void {
   function renderAll(items: Item[]) {
     const events = applyViewV2(items.filter((i) => i.kind === "event"), scheduleState);
     const todos = applyViewV2(items.filter((i) => i.kind === "todo"), todosState);
-    // For the due view, the spec excludes done items; apply that here:
-    const dueNotDone = items.filter((i) => i.status !== "done" && i.reminder);
+    // For the due view, the spec excludes done items. Show anything with a
+    // reminder or a future datetime — applyViewV2's "week" branch decides if
+    // it actually matches the active window.
+    const dueNotDone = items.filter((i) => i.status !== "done" && (i.reminder || i.datetime));
     const dueShown = applyViewV2(dueNotDone, dueState);
 
     cSched.textContent = String(events.filter((i) => i.status !== "done").length || "");
