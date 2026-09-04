@@ -181,18 +181,26 @@ Identical body to `agent-login.mjs` plus an unconditional
 
 ### 2.4 `opencode.json`
 
-Add `storageState` to the playwright MCP server entry:
+Add `--isolated` (so the MCP honours `--storage-state`) and the
+storage-state path to the playwright MCP server entry:
 
 ```jsonc
 {
   "mcp": {
     "playwright": {
       "command": "npx",
-      "args": ["-y", "@playwright/mcp@latest", "--storage-state", "C:\\Users\\<you>\\.config\\opencode\\todoapp-agent-storage.json"]
+      "args": ["-y", "@playwright/mcp@latest", "--isolated", "--storage-state", "{env:HOME}/.config/opencode/todoapp-agent-storage.json"]
     }
   }
 }
 ```
+
+> **Note for developers:** `{env:HOME}` resolves to your user home
+> directory — substitute the equivalent path for your OS
+> (e.g. `C:\\Users\\<you>\\.config\\opencode\\todoapp-agent-storage.json`
+> on Windows, `/Users/<you>/.config/opencode/todoapp-agent-storage.json`
+> on macOS/Linux). Each developer should edit this entry to point at
+> their own home directory before relying on the agent-auth bypass.
 
 (Exact MCP flag spelling to be confirmed against the installed MCP version;
 fallback is to launch Playwright myself with `storageState` rather than

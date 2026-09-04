@@ -470,11 +470,16 @@ If the args array currently looks like:
 "args": ["-y", "@playwright/mcp@latest"]
 ```
 
-change it to:
+change it to (note `--isolated` MUST come before `--storage-state` for the
+flag to be honoured, and the path is per-developer):
 
 ```json
-"args": ["-y", "@playwright/mcp@latest", "--storage-state", "C:\\Users\\<you>\\.config\\opencode\\todoapp-agent-storage.json"]
+"args": ["-y", "@playwright/mcp@latest", "--isolated", "--storage-state", "{env:HOME}/.config/opencode/todoapp-agent-storage.json"]
 ```
+
+On Windows the expanded path is typically
+`C:\\Users\\<you>\\.config\\opencode\\todoapp-agent-storage.json`. Each
+developer should substitute their own home directory.
 
 If the playwright MCP version installed doesn't support `--storage-state` as a CLI flag (verify via `npx -y @playwright/mcp@latest --help`), fall back to launching Playwright directly in each agent invocation with `storageState` set on the context — note that fallback in the spec under "operational notes" and stop here without changing `opencode.json`.
 
