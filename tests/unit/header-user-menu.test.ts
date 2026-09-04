@@ -35,6 +35,8 @@ describe("user menu header", () => {
           <input type="checkbox" id="setMilitary" />
           <input type="checkbox" id="setAutoDelete" />
           <input type="number" id="autoDeleteDays" min="1" value="30" />
+          <input type="checkbox" id="setDueIncludeOverdue" />
+          <input type="number" id="setDueDaysAhead" min="1" value="7" />
           <span id="keyStatus" class="key-status"></span>
           <button id="keyTest" type="button"></button>
           <button id="settingsCancel" type="button"></button>
@@ -73,5 +75,41 @@ describe("user menu header", () => {
     await new Promise((r) => setTimeout(r, 0));
     document.getElementById("userSignOut")!.click();
     expect(signOut).toHaveBeenCalled();
+  });
+});
+
+describe("settings modal dismiss", () => {
+  it("closes when the backdrop is clicked", async () => {
+    (getSession as any).mockResolvedValue(null);
+    await mountHeader();
+    const back = document.getElementById("settingsModal")!;
+    const btn = document.getElementById("settingsBtn")!;
+    btn.click();
+    expect(back.classList.contains("show")).toBe(true);
+    back.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(back.classList.contains("show")).toBe(false);
+  });
+
+  it("does not close when clicking inside the modal panel", async () => {
+    (getSession as any).mockResolvedValue(null);
+    await mountHeader();
+    const back = document.getElementById("settingsModal")!;
+    const panel = back.querySelector(".spanel")!;
+    const btn = document.getElementById("settingsBtn")!;
+    btn.click();
+    expect(back.classList.contains("show")).toBe(true);
+    panel.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(back.classList.contains("show")).toBe(true);
+  });
+
+  it("closes when Escape is pressed and modal is open", async () => {
+    (getSession as any).mockResolvedValue(null);
+    await mountHeader();
+    const back = document.getElementById("settingsModal")!;
+    const btn = document.getElementById("settingsBtn")!;
+    btn.click();
+    expect(back.classList.contains("show")).toBe(true);
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    expect(back.classList.contains("show")).toBe(false);
   });
 });
