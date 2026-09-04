@@ -58,22 +58,43 @@ try {
     await page.waitForTimeout(400);
     await page.screenshot({ path: `${outDir}/${c.name}-schedule.png`, fullPage: true });
 
+    // Todos view (for big-card verification)
+    await page.click('.tab[data-view="todos"]');
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: `${outDir}/${c.name}-todos.png`, fullPage: true });
+
+    // Due view (for default-week verification)
+    await page.click('.tab[data-view="due"]');
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: `${outDir}/${c.name}-due.png`, fullPage: true });
+
     // Dictate
     if (c.w >= 768) {
       const toggle = await page.$("#dictateToggle");
       if (toggle) {
+        await page.click('.tab[data-view="schedule"]');
+        await page.waitForTimeout(200);
         await toggle.click();
         await page.waitForTimeout(300);
         await page.screenshot({ path: `${outDir}/${c.name}-dictate.png`, fullPage: false });
       }
     }
 
-    // Settings
+    // Settings (General tab — default)
     await page.click("#settingsBtn");
     await page.waitForTimeout(400);
     await page.screenshot({ path: `${outDir}/${c.name}-settings.png`, fullPage: false });
-    await page.click("#settingsCancel");
+
+    // Settings → Colors (for default-rules verification)
+    await page.click('.stab[data-tab="colors"]');
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: `${outDir}/${c.name}-colors.png`, fullPage: false });
+
+    // Backdrop dismiss — click on the backdrop, verify modal closes
+    await page.mouse.click(20, 20);
     await page.waitForTimeout(200);
+    const stillOpen = await page.evaluate(() => document.getElementById("settingsModal")?.classList.contains("show"));
+    console.log(`${c.name}: backdrop dismiss closed modal: ${!stillOpen}`);
 
     await page.close();
   }
