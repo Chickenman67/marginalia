@@ -219,8 +219,8 @@ describe("style.css — weekday + todo sizing", () => {
     expect(css).toMatch(/\.weekday::after\s*\{[^}]*content\s*:\s*"\s*·\s*"/);
   });
 
-  it(".card.todo uses compact padding (8px 12px)", () => {
-    expect(css).toMatch(/\.card\.todo\s*\{[^}]*padding:\s*8px\s+12px/);
+  it(".card.todo uses comfortable padding (12px 16px)", () => {
+    expect(css).toMatch(/\.card\.todo\s*\{[^}]*padding:\s*12px\s+16px/);
   });
   it(".card.todo centers children vertically", () => {
     expect(css).toMatch(/\.card\.todo\s*\{[^}]*align-items:\s*center/);
@@ -228,8 +228,8 @@ describe("style.css — weekday + todo sizing", () => {
   it(".stars has min-width: 0 to prevent overflow", () => {
     expect(css).toMatch(/\.stars\s*\{[^}]*min-width:\s*0/);
   });
-  it(".card.todo .stars .star is 15px to fit next to badge", () => {
-    expect(css).toMatch(/\.card\.todo\s+\.stars\s+\.star\s*\{[^}]*width:\s*15px[^}]*height:\s*15px/);
+  it(".card.todo .stars .star is 20px for comfortable clicking on desktop", () => {
+    expect(css).toMatch(/\.card\.todo\s+\.stars\s+\.star\s*\{[^}]*width:\s*20px[^}]*height:\s*20px/);
   });
   it("uses a darker --star-empty so unrated stars are clearly visible", () => {
     expect(css).toMatch(/--star-empty:\s*#c4baa6/);
