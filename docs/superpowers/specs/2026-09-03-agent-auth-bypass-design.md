@@ -127,7 +127,13 @@ await keytar.setPassword("todoapp-agent", email, password);
 console.log("Saved to OS keychain under service 'todoapp-agent'.");
 ```
 
-### 2.2 `scripts/agent-login.mjs` (new, in repo, gitignored)
+### 2.2 `scripts/agent-auth.mjs` (new, in repo, gitignored)
+
+The single implementation behind login and refresh. Reads
+`process.argv[2]` to choose mode: `"refresh"` deletes the existing
+storage file first; anything else (typically no second arg) skips the
+unlink. Both modes then drive the auth form and write a fresh storage
+state.
 
 ```js
 import { chromium } from "playwright";
@@ -137,47 +143,61 @@ import path from "node:path";
 import os from "node:os";
 
 const SERVICE = "todoapp-agent";
-const STORAGE = path.join(os.homedir(), ".config", "opencode", "todoapp-agent-storage.json");
 const DEV_URL  = process.env.AGENT_DEV_URL ?? "http://localhost:5173";
+const STORAGE = process.env.AGENT_STORAGE_PATH ??
+  path.join(os.homedir(), ".config", "opencode", "todoapp-agent-storage.json");
 
-// 1. read creds
+const isRefresh = process.argv[2] === "refresh";
+const verb = isRefresh ? "Refresh" : "Login";
+
+if (isRefresh) {
+  await fs.unlink(STORAGE).catch(() => {});
+}
+
 const accounts = await keytar.findCredentials(SERVICE);
-if (accounts.length === 0) { console.error("Run `node scripts/agent-init.mjs` first."); process.exit(2); }
+if (accounts.length === 0) {
+  console.error(`No credentials in keychain under service '${SERVICE}'. Run 'node scripts/agent-init.mjs' first.`);
+  process.exit(2);
+}
 const { account: email, password } = accounts[0];
 
-// 2. drive the auth form
 const browser = await chromium.launch({ headless: true });
 const ctx = await browser.newContext();
 const page = await ctx.newPage();
 
+let exitCode = 0;
 try {
   await page.goto(DEV_URL, { waitUntil: "domcontentloaded", timeout: 10_000 });
   await page.waitForSelector("#authEmail", { timeout: 10_000 });
   await page.fill("#authEmail", email);
   await page.fill("#authPw", password);
-  await page.click("#authForm button[type=submit]");
+  await page.click('#authForm button[type="submit"]');
 
-  // success = #appRoot visible, #authRoot hidden
   await page.waitForSelector("#appRoot:not([hidden])", { timeout: 15_000 });
 
-  // 3. persist storage state
   await fs.mkdir(path.dirname(STORAGE), { recursive: true });
   await ctx.storageState({ path: STORAGE });
-  console.log(`Wrote ${STORAGE}`);
+  console.log(`${isRefresh ? "Refreshed" : "Wrote"} ${STORAGE}`);
 } catch (e) {
-  // capture the .auth-status banner if present
   const banner = await page.locator(".auth-status").textContent().catch(() => "");
-  console.error(`Login failed: ${e.message}${banner ? ` — ${banner}` : ""}`);
-  process.exit(1);
+  console.error(`${verb} failed: ${e.message}${banner ? ` — ${banner}` : ""}`);
+  exitCode = 1;
 } finally {
   await browser.close();
 }
+process.exit(exitCode);
 ```
 
-### 2.3 `scripts/agent-refresh.mjs` (new, in repo, gitignored)
+### 2.3 `scripts/agent-login.mjs` and `scripts/agent-refresh.mjs` (wrappers, gitignored)
 
-Identical body to `agent-login.mjs` plus an unconditional
-`fs.unlink(STORAGE).catch(() => {})` at the top.
+Two-line wrappers that re-spawn `agent-auth.mjs` so the operator can keep
+typing the familiar commands:
+
+- `scripts/agent-login.mjs` → `spawnSync(process.execPath, [target])`
+- `scripts/agent-refresh.mjs` → `spawnSync(process.execPath, [target, "refresh"])`
+
+Both wrappers `import.meta.url` to resolve the sibling script path and
+forward the child process exit code.
 
 ### 2.4 `opencode.json`
 
