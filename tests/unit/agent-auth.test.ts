@@ -73,7 +73,7 @@ describe("agent auth: storage-state shape", () => {
 
 describe("agent auth: refresh deletes pre-existing storage file", () => {
   it("calls fs.unlink once with the storage path before writing a new one", async () => {
-    vi.resetModules();
+vi.resetModules();
     const unlink = vi.fn().mockResolvedValue(undefined);
     vi.doMock("node:fs", () => ({
       promises: {
@@ -97,10 +97,14 @@ describe("agent auth: refresh deletes pre-existing storage file", () => {
     }));
 
     const STORAGE = path.join(os.homedir(), ".config", "opencode", "todoapp-agent-storage.json");
+    const originalArgv = process.argv;
+    process.argv = [process.argv[0], "agent-auth.mjs", "refresh"];
     try {
-      await import("../../scripts/agent-refresh.mjs");
+      await import("../../scripts/agent-auth.mjs");
     } catch {
       // expected — the chromium launch mock rejects to skip the login flow
+    } finally {
+      process.argv = originalArgv;
     }
 
     expect(unlink).toHaveBeenCalledTimes(1);
