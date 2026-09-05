@@ -413,15 +413,19 @@ main { flex: 1; padding: 18px 22px 150px; }
 /* Tooltip: small numeric pill above the hovered star. Horizontal position
    uses the same percentages as the old rectangle overlay so the centre of
    the pill lands over the hovered star. */
+/* Tooltip: small numeric pill above the hovered star. Light cream background
+   with a thin border so it reads as a tooltip, not a black blob. The
+   horizontal position rules below stay identical. */
 .stars .tip {
   position: absolute;
   top: -1.4em;
   transform: translateX(-50%);
   font: 600 11px/1 "Inter", system-ui, sans-serif;
-  background: var(--ink);
-  color: var(--panel);
+  background: var(--paper);
+  color: var(--ink);
   padding: 3px 6px;
   border-radius: 4px;
+  border: 1px solid var(--line);
   pointer-events: none;
   opacity: 0;
   transition: opacity .12s ease;
