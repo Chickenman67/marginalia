@@ -338,6 +338,15 @@ main { flex: 1; padding: 18px 22px 150px; }
 .stars { display: inline-flex; gap: 0; align-items: center; min-width: 0; position: relative; }
 .stars .star { width: 18px; height: 18px; display: inline-block; cursor: pointer; line-height: 0; padding: 0; color: inherit; text-align: start; font: inherit; }
 .stars .star svg { display: block; width: 100%; height: 100%; pointer-events: none; transition: transform .12s ease, filter .12s ease; }
+/* Click-pop: the original widget used a brief scale-up + drop-shadow on the
+   committed star when the mouse button was pressed. The preview overlay
+   handles hover feedback; this rule restores the click feedback. The
+   existing 120ms transition on .stars .star svg makes the press/release
+   smooth. */
+.stars .star:active svg {
+  transform: scale(1.15);
+  filter: drop-shadow(0 1px 1px rgba(58, 46, 16, 0.35));
+}
 .stars .star.empty svg { opacity: 1; }
 .card.todo .stars .star { width: 20px; height: 20px; }
 
