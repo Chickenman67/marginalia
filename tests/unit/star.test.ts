@@ -64,6 +64,18 @@ describe("starHTML", () => {
     expect(countOccurrences(h, "star full")).toBe(2);
     expect(countOccurrences(h, "star half")).toBe(1);
   });
+
+  it("emits a preview overlay of 5 ghost stars", () => {
+    const h = starHTML(0, "x");
+    expect(countOccurrences(h, "class=\"preview\"")).toBe(1);
+    expect(countOccurrences(h, "class=\"preview-star\"")).toBe(5);
+  });
+
+  it("emits a numeric tooltip element", () => {
+    const h = starHTML(2.5, "x");
+    expect(h).toContain("class=\"tip\"");
+    expect(h).toContain("2.5");
+  });
 });
 
 describe("starSymbolHTML", () => {

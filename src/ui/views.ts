@@ -39,7 +39,19 @@ export function starHTML(rating: number, itemId: string): string {
       </span>`;
     }
   }
-  return `<span class="stars" role="radiogroup" aria-label="Rating" data-item="${itemId}">${stars}</span>`;
+
+  let preview = "";
+  for (let i = 1; i <= 5; i++) {
+    preview += `<svg class="preview-star" viewBox="0 0 24 24" data-pos="${i}">
+      <defs><clipPath id="prev-half-${itemId}-${i}"><rect x="0" y="0" width="12" height="24"/></clipPath></defs>
+      <use href="#${STAR_SYMBOL_ID}" fill="${STAR_EMPTY_FILL}" stroke="none"/>
+      <g class="fill"><use href="#${STAR_SYMBOL_ID}" fill="#f5c518" stroke="none"/></g>
+    </svg>`;
+  }
+
+  const tipText = r === 0 ? "" : (r % 1 === 0 ? String(r) : r.toFixed(1));
+
+  return `<span class="stars" role="radiogroup" aria-label="Rating" data-item="${itemId}">${stars}<span class="preview" aria-hidden="true">${preview}</span><span class="tip" aria-hidden="true">${tipText}</span></span>`;
 }
 
 export function starClickValue(pos: number, zone: "half" | "whole", current: number, shiftKey: boolean): number {
