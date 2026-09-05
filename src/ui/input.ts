@@ -229,6 +229,9 @@ function localToISO(s: string): string | null {
 }
 
 export function mountViews(): void {
+  editingRows.clear();
+  editingPrevious.clear();
+
   const vSched = el<HTMLDivElement>("#view-schedule");
   const vTodo = el<HTMLDivElement>("#view-todos");
   const vDue = el<HTMLDivElement>("#view-due");
@@ -496,6 +499,14 @@ export function starHoverValue(pos: number, offsetX: number, starWidth: number):
 }
 
 function bindStarEvents(host: HTMLElement, items: Item[]) {
+  // Prune module-level editing state for items that no longer exist.
+  // When an item is deleted while its row is being hovered, mouseleave never
+  // fires on the wiped DOM, so its id would otherwise stay in editingRows /
+  // editingPrevious forever.
+  const liveIds = new Set(items.map(i => i.id));
+  for (const id of [...editingRows]) if (!liveIds.has(id)) editingRows.delete(id);
+  for (const id of [...editingPrevious.keys()]) if (!liveIds.has(id)) editingPrevious.delete(id);
+
   // Re-apply the editing-pin state to any rows that were editing before the
   // innerHTML wipe. The post-render .stars element is brand new, so it has
   // no data-editing / data-previous-rating attributes yet — restore them from

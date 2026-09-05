@@ -57,7 +57,6 @@ export function starHTML(rating: number, itemId: string): string {
   let preview = "";
   for (let i = 1; i <= 5; i++) {
     preview += `<svg class="preview-star" viewBox="0 0 24 24" data-pos="${i}">
-      <defs><clipPath id="prev-half-${itemId}-${i}"><rect x="0" y="0" width="12" height="24"/></clipPath></defs>
       <use href="#${STAR_SYMBOL_ID}" fill="${STAR_EMPTY_FILL}" stroke="none"/>
       <g class="fill"><use href="#${STAR_SYMBOL_ID}" fill="#f5c518" stroke="none"/></g>
     </svg>`;
