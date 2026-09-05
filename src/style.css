@@ -341,40 +341,94 @@ main { flex: 1; padding: 18px 22px 150px; }
 .stars .star.empty svg { opacity: 1; }
 .card.todo .stars .star { width: 20px; height: 20px; }
 
-/* Hover preview: a gold overlay is drawn over the row from the left up to the
-   hovered position. The overlay is a single ::before element; its width is
-   controlled by the data-hover attribute set in bindStarEvents. Whole-star
-   positions (1..5) and half positions (0.5, 1.5, 2.5, 3.5, 4.5) are mapped to
-   the same percentage so the overlay stops at the right edge of the chosen
-   star, or halfway across it for half steps. */
-.stars::before {
-  content: "";
+/* Hover preview overlay: 5 ghost stars painted over the committed stars.
+   Each preview-star's inner <g class="fill"> is shown only when the row's
+   data-hover value reaches or exceeds its position. For half-step hovers
+   (data-hover="X.5"), the fill group on the X+1 star is clipped to the
+   left half via clip-path on .fill. CSS does the work so the JS handler
+   just toggles a single attribute on the row. */
+.stars .preview {
   position: absolute;
-  top: 0;
-  left: 0;
-  height: 100%;
-  width: 0;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
   pointer-events: none;
-  background: linear-gradient(90deg, rgba(245, 197, 24, 0.45), rgba(245, 197, 24, 0.45));
-  transition: width .12s ease;
-  border-radius: 2px;
+  opacity: 0;
+  transition: opacity .12s ease;
 }
-.stars[data-hover="0.5"]::before { width: 10%; }
-.stars[data-hover="1"]::before   { width: 20%; }
-.stars[data-hover="1.5"]::before { width: 30%; }
-.stars[data-hover="2"]::before   { width: 40%; }
-.stars[data-hover="2.5"]::before { width: 50%; }
-.stars[data-hover="3"]::before   { width: 60%; }
-.stars[data-hover="3.5"]::before { width: 70%; }
-.stars[data-hover="4"]::before   { width: 80%; }
-.stars[data-hover="4.5"]::before { width: 90%; }
-.stars[data-hover="5"]::before   { width: 100%; }
+.stars[data-hover] .preview { opacity: 1; }
+.stars .preview-star { width: 100%; height: 100%; display: block; }
+.stars .preview-star .fill { display: none; }
 
-/* Make the hovered star pop a touch so the cursor location is obvious. */
-.stars[data-hover] .star:hover svg {
-  transform: scale(1.15);
-  filter: drop-shadow(0 1px 1px rgba(58, 46, 16, 0.35));
+.stars[data-hover="0.5"] .preview-star[data-pos="1"] .fill,
+.stars[data-hover="1"] .preview-star[data-pos="1"] .fill,
+.stars[data-hover="1.5"] .preview-star[data-pos="1"] .fill,
+.stars[data-hover="1.5"] .preview-star[data-pos="2"] .fill,
+.stars[data-hover="2"] .preview-star[data-pos="1"] .fill,
+.stars[data-hover="2"] .preview-star[data-pos="2"] .fill,
+.stars[data-hover="2.5"] .preview-star[data-pos="1"] .fill,
+.stars[data-hover="2.5"] .preview-star[data-pos="2"] .fill,
+.stars[data-hover="2.5"] .preview-star[data-pos="3"] .fill,
+.stars[data-hover="3"] .preview-star[data-pos="1"] .fill,
+.stars[data-hover="3"] .preview-star[data-pos="2"] .fill,
+.stars[data-hover="3"] .preview-star[data-pos="3"] .fill,
+.stars[data-hover="3.5"] .preview-star[data-pos="1"] .fill,
+.stars[data-hover="3.5"] .preview-star[data-pos="2"] .fill,
+.stars[data-hover="3.5"] .preview-star[data-pos="3"] .fill,
+.stars[data-hover="3.5"] .preview-star[data-pos="4"] .fill,
+.stars[data-hover="4"] .preview-star[data-pos="1"] .fill,
+.stars[data-hover="4"] .preview-star[data-pos="2"] .fill,
+.stars[data-hover="4"] .preview-star[data-pos="3"] .fill,
+.stars[data-hover="4"] .preview-star[data-pos="4"] .fill,
+.stars[data-hover="4.5"] .preview-star[data-pos="1"] .fill,
+.stars[data-hover="4.5"] .preview-star[data-pos="2"] .fill,
+.stars[data-hover="4.5"] .preview-star[data-pos="3"] .fill,
+.stars[data-hover="4.5"] .preview-star[data-pos="4"] .fill,
+.stars[data-hover="4.5"] .preview-star[data-pos="5"] .fill,
+.stars[data-hover="5"] .preview-star[data-pos="1"] .fill,
+.stars[data-hover="5"] .preview-star[data-pos="2"] .fill,
+.stars[data-hover="5"] .preview-star[data-pos="3"] .fill,
+.stars[data-hover="5"] .preview-star[data-pos="4"] .fill,
+.stars[data-hover="5"] .preview-star[data-pos="5"] .fill {
+  display: block;
 }
+
+/* Half-step clip: when the hover value is X.5, the (X+1)th fill is shown
+   only on the left half. */
+.stars[data-hover="0.5"] .preview-star[data-pos="1"] .fill { clip-path: inset(0 50% 0 0); }
+.stars[data-hover="1.5"] .preview-star[data-pos="2"] .fill { clip-path: inset(0 50% 0 0); }
+.stars[data-hover="2.5"] .preview-star[data-pos="3"] .fill { clip-path: inset(0 50% 0 0); }
+.stars[data-hover="3.5"] .preview-star[data-pos="4"] .fill { clip-path: inset(0 50% 0 0); }
+.stars[data-hover="4.5"] .preview-star[data-pos="5"] .fill { clip-path: inset(0 50% 0 0); }
+
+/* Tooltip: small numeric pill above the hovered star. Horizontal position
+   uses the same percentages as the old rectangle overlay so the centre of
+   the pill lands over the hovered star. */
+.stars .tip {
+  position: absolute;
+  top: -1.4em;
+  transform: translateX(-50%);
+  font: 600 11px/1 "Inter", system-ui, sans-serif;
+  background: var(--ink);
+  color: var(--panel);
+  padding: 3px 6px;
+  border-radius: 4px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .12s ease;
+  white-space: nowrap;
+}
+.stars[data-hover] .tip { opacity: 1; }
+.stars[data-hover="0.5"] .tip { left: 10%; }
+.stars[data-hover="1"] .tip   { left: 20%; }
+.stars[data-hover="1.5"] .tip { left: 30%; }
+.stars[data-hover="2"] .tip   { left: 40%; }
+.stars[data-hover="2.5"] .tip { left: 50%; }
+.stars[data-hover="3"] .tip   { left: 60%; }
+.stars[data-hover="3.5"] .tip { left: 70%; }
+.stars[data-hover="4"] .tip   { left: 80%; }
+.stars[data-hover="4.5"] .tip { left: 90%; }
+.stars[data-hover="5"] .tip   { left: 100%; }
 
 /* filter pill + panel */
 .filter-pill {
