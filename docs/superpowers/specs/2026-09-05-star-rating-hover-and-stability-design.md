@@ -55,22 +55,14 @@ The `.stars` row now contains three layers, in this DOM order:
 
 **New helper** (`src/ui/views.ts`):
 
-```ts
-export function effectiveRating(item: Item, editingId: string | null): number {
-  return editingId === item.id ? item.rating /* unchanged during edit */ : item.rating;
-}
-```
-
-Wait — that returns the same number regardless. The real mechanism is different. The committed rating is already mutated optimistically in `setRating()` *before* the next render. So the trick is to make the sort comparator treat the currently-edited row as if its rating were its *previous* value during the edit window.
-
-Revised plan:
+The committed rating is already mutated optimistically in `setRating()` *before* the next render. The mechanism to keep the row pinned is to make the sort comparator treat the currently-edited row as if its rating were its *previous* value during the edit window:
 
 - `setRating()` captures `previous` (already does).
 - `setRating()` writes the new rating to local state and to the server in parallel (already does).
 - The sort comparator receives a `pinnedRatings: Map<id, number>` argument. When sorting, items in the map use the pinned rating for comparison. The map is populated at the start of each render with `{ [editingId]: previousRating }` where `editingId` is the row with `data-editing="1"`.
 - New helper: `getPinnedRatings(host: HTMLElement): Map<string, number>` — scans `host.querySelectorAll(".stars[data-editing]")` and reads the prior rating from a `data-previous-rating` attribute written by `setRating`.
 
-**`setRating` change**:
+**`setRating` change** (`src/ui/input.ts`):
 
 ```ts
 async function setRating(id: string, rating: number, items: Item[]) {
