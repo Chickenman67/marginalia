@@ -76,6 +76,16 @@ describe("starHTML", () => {
     expect(h).toContain("class=\"tip\"");
     expect(h).toContain("2.5");
   });
+
+  it("emits a .tip element whose initial text is the committed rating", () => {
+    const h0 = starHTML(0, "x");
+    const h3 = starHTML(3, "x");
+    const h25 = starHTML(2.5, "x");
+    // rating 0: tip text is empty (hidden)
+    expect(h0.match(/class="tip"[^>]*>([^<]*)/)?.[1] ?? "").toBe("");
+    expect(h3.match(/class="tip"[^>]*>([^<]*)/)?.[1] ?? "").toBe("3");
+    expect(h25.match(/class="tip"[^>]*>([^<]*)/)?.[1] ?? "").toBe("2.5");
+  });
 });
 
 describe("starSymbolHTML", () => {

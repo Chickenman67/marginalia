@@ -521,6 +521,12 @@ function bindStarEvents(host: HTMLElement, items: Item[]) {
   }
 
   host.querySelectorAll<HTMLElement>(".stars").forEach((row) => {
+    // Stash the committed-rating tip text on the row so mouseleave can
+    // restore it. (This avoids re-deriving it from the committed stars on
+    // every leave.)
+    const tipEl = row.querySelector<HTMLElement>(".tip");
+    if (tipEl) row.dataset.committedTip = tipEl.textContent ?? "";
+
     row.addEventListener("mouseenter", () => {
       if (host.querySelector(".card.selected")) return; // selection mode
       row.dataset.editing = "1";
@@ -533,13 +539,22 @@ function bindStarEvents(host: HTMLElement, items: Item[]) {
         editingRows.delete(id);
         editingPrevious.delete(id);
       }
+      // Restore the committed-rating tip text.
+      const tip = row.querySelector<HTMLElement>(".tip");
+      if (tip && row.dataset.committedTip !== undefined) {
+        tip.textContent = row.dataset.committedTip;
+      }
     });
     row.querySelectorAll<HTMLElement>(".star").forEach((starEl) => {
       starEl.addEventListener("mousemove", (e) => {
         if (host.querySelector(".card.selected")) return; // selection mode
         const pos = Number(starEl.dataset.pos);
         const me = e as MouseEvent;
-        row.dataset.hover = String(starHoverValue(pos, me.offsetX, starEl.clientWidth));
+        const value = starHoverValue(pos, me.offsetX, starEl.clientWidth);
+        row.dataset.hover = String(value);
+        // Update the tip text to follow the cursor.
+        const tip = row.querySelector<HTMLElement>(".tip");
+        if (tip) tip.textContent = String(value);
       });
       starEl.addEventListener("mouseleave", () => {
         if (row.dataset.hover !== undefined) delete row.dataset.hover;
