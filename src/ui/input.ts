@@ -409,9 +409,9 @@ export function mountViews(): void {
     const schedCards = vSched.querySelector<HTMLElement>(".view-cards")!;
     const todoCards = vTodo.querySelector<HTMLElement>(".view-cards")!;
     const dueCards = vDue.querySelector<HTMLElement>(".view-cards")!;
-    schedCards.innerHTML = events.length ? groupByDay(events, selectable) : `<div class="empty">Nothing scheduled. Speak or type to add one.</div>`;
+    schedCards.innerHTML = events.length ? groupByDay(events, selectable, { showPin: false }) : `<div class="empty">Nothing scheduled. Speak or type to add one.</div>`;
     todoCards.innerHTML = todos.length ? todos.map((i) => cardHTML(i, { selectable, selected: selected.has(i.id), showPin: false })).join("") : `<div class="empty">No todos. Add one below.</div>`;
-    dueCards.innerHTML = dueShown.length ? dueShown.map((i) => cardHTML(i, { selectable, selected: selected.has(i.id), showPin: i.kind === "event" })).join("") : `<div class="empty">Nothing due right now.</div>`;
+    dueCards.innerHTML = dueShown.length ? dueShown.map((i) => cardHTML(i, { selectable, selected: selected.has(i.id), showPin: false })).join("") : `<div class="empty">Nothing due right now.</div>`;
 
     const selCtx = { selected, onChange: updateSelToolbar };
     bindCardEvents(schedCards, undefined, selCtx);

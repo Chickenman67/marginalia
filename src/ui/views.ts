@@ -400,7 +400,7 @@ export function bindCardEvents(
   });
 }
 
-export function groupByDay(items: Item[], selectable = false): string {
+export function groupByDay(items: Item[], selectable = false, cardOpts: { showPin?: boolean } = {}): string {
   const groups: Record<string, Item[]> = {};
   let html = "";
   items.forEach((i) => {
@@ -409,7 +409,7 @@ export function groupByDay(items: Item[], selectable = false): string {
   });
   Object.keys(groups).forEach((k) => {
     const ids = groups[k].map((i) => i.id).join(",");
-    html += `<div class="day-label">${esc(k)}${selectable ? `<button type="button" class="day-del" data-ids="${ids}">delete all</button>` : ""}</div>` + groups[k].map((i) => cardHTML(i, { selectable })).join("");
+    html += `<div class="day-label">${esc(k)}${selectable ? `<button type="button" class="day-del" data-ids="${ids}">delete all</button>` : ""}</div>` + groups[k].map((i) => cardHTML(i, { selectable, ...cardOpts })).join("");
   });
   return html;
 }

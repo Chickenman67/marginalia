@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { applyView, cardHTML, weekdayShort } from "../../src/ui/views";
+import { applyView, cardHTML, groupByDay, weekdayShort } from "../../src/ui/views";
 import type { Item } from "../../src/types";
 
 function mkItem(title: string, datetime: string | null, status: "pending" | "done" = "pending", order = 0): Item {
@@ -281,5 +281,47 @@ describe("style.css — weekday + todo sizing", () => {
         );
       }
     }
+  });
+});
+
+describe("groupByDay", () => {
+  it("does not render a pin button when showPin: false", () => {
+    const items: Item[] = [
+      {
+        id: "x",
+        title: "x",
+        kind: "event",
+        datetime: "2026-09-06T09:00:00",
+        reminder: null,
+        all_day: false,
+        status: "pending",
+        rating: 0,
+        pinned: true,
+        order: 0,
+        created_at: "2026-09-05T00:00:00"
+      } as Item
+    ];
+    const html = groupByDay(items, false, { showPin: false });
+    expect(html).not.toContain("pin-btn");
+  });
+
+  it("does render a pin button when showPin is omitted (default)", () => {
+    const items: Item[] = [
+      {
+        id: "x",
+        title: "x",
+        kind: "event",
+        datetime: "2026-09-06T09:00:00",
+        reminder: null,
+        all_day: false,
+        status: "pending",
+        rating: 0,
+        pinned: true,
+        order: 0,
+        created_at: "2026-09-05T00:00:00"
+      } as Item
+    ];
+    const html = groupByDay(items, false);
+    expect(html).toContain("pin-btn");
   });
 });
