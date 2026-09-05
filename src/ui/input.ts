@@ -482,6 +482,16 @@ async function setRating(id: string, rating: number, items: Item[]) {
   editingPrevious.set(id, previous);
   const local = items.map((x) => (x.id === id ? { ...x, rating } : x));
   setItems(local);
+  // Pin release: the click has committed, let the next render re-sort the row
+  // to its new position. mouseenter will re-pin if the cursor is still inside
+  // the row, ready for the next click.
+  editingRows.delete(id);
+  editingPrevious.delete(id);
+  const rowAfter = document.querySelector<HTMLElement>(`.stars[data-item="${id}"]`);
+  if (rowAfter) {
+    if (rowAfter.dataset.editing !== undefined) delete rowAfter.dataset.editing;
+    if (rowAfter.dataset.previousRating !== undefined) delete rowAfter.dataset.previousRating;
+  }
   try {
     await updateItem(id, { rating });
   } catch (err) {

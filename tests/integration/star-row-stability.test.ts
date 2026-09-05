@@ -36,7 +36,7 @@ describe("star row stability across re-render", () => {
     expect(pinned.get("x")).toBe(0);
   });
 
-  it("still returns a populated map after a re-render replaces the editing row", () => {
+  it("returns an empty map after the editing pin is released (post-click) and the row is re-rendered", () => {
     const host = document.getElementById("host")!;
 
     host.innerHTML = starHTML(0, "x");
@@ -44,14 +44,14 @@ describe("star row stability across re-render", () => {
     row.dataset.editing = "1";
     row.dataset.previousRating = "0";
 
-    const beforePinned = getPinnedRatings(host);
-    expect(beforePinned.size).toBe(1);
-    expect(beforePinned.get("x")).toBe(0);
+    // Simulate setRating releasing the pin before re-render.
+    delete row.dataset.editing;
+    delete row.dataset.previousRating;
 
+    // Simulate setItems -> renderAll swapping the row.
     host.innerHTML = starHTML(5, "x");
 
     const afterPinned = getPinnedRatings(host);
-    expect(afterPinned.size).toBe(1);
-    expect(afterPinned.get("x")).toBe(0);
+    expect(afterPinned.size).toBe(0);
   });
 });
