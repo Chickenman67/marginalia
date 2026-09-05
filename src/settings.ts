@@ -132,19 +132,23 @@ export function colorFor(iso: string | null): string | null {
   const now = Date.now();
   const hours = (due - now) / 3.6e6;
   const s = getSettings();
-  // Sort rules ascending by withinHours. For future items, the smallest window
-  // that still contains the item wins (most specific). For past items, the
-  // largest window whose boundary we have already crossed wins.
+  // Sort rules ascending by withinHours. The first rule whose window still
+  // contains the item wins — that gives the most specific color regardless of
+  // direction. For future items that's the smallest positive window. For past
+  // items the smallest window whose `withinHours` boundary we've already
+  // crossed (in reverse) wins — the boundary `withinHours=0` matches the
+  // instant "now" / any item past now.
   const sorted = [...s.colorRules].sort((a, b) => a.withinHours - b.withinHours);
-  let best: ColorRule | null = null;
   for (const r of sorted) {
     if (hours < 0) {
-      if (r.withinHours >= Math.abs(hours)) best = r;
+      // Past: rule paints if |hours| <= r.withinHours OR r.withinHours === 0
+      // (the boundary rule that represents "now / any time past").
+      const abs = Math.abs(hours);
+      if (r.withinHours === 0 || abs <= r.withinHours) return r.color;
     } else {
-      if (hours <= r.withinHours) best = r;
+      if (hours <= r.withinHours) return r.color;
     }
   }
-  if (best) return best.color;
   return FAR_FUTURE_COLOR;
 }
 

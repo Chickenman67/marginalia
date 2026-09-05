@@ -1,5 +1,18 @@
-import { describe, it, expect } from "vitest";
-import { DEFAULT_COLOR_RULES, nextColorForNewRule, FAR_FUTURE_COLOR } from "../../src/settings";
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { DEFAULT_COLOR_RULES, nextColorForNewRule, FAR_FUTURE_COLOR, colorFor, getSettings, updateSettings } from "../../src/settings";
+import { getSession } from "../../src/auth";
+
+vi.mock("../../src/auth", () => ({
+  getSession: vi.fn()
+}));
+
+beforeEach(async () => {
+  (getSession as any).mockResolvedValue(null);
+  // Seed the module-level cache with the default rules so colorFor() uses them.
+  await updateSettings({ colorRules: [...DEFAULT_COLOR_RULES] });
+  // Sanity: getSettings() now returns the seeded rules.
+  expect(getSettings().colorRules).toHaveLength(3);
+});
 
 describe("DEFAULT_COLOR_RULES", () => {
   it("has exactly three entries", () => {
@@ -46,5 +59,30 @@ describe("nextColorForNewRule", () => {
 describe("FAR_FUTURE_COLOR", () => {
   it("is the green used for items beyond every rule", () => {
     expect(FAR_FUTURE_COLOR.toLowerCase()).toBe("#3f7d6e");
+  });
+});
+
+describe("colorFor with default rules", () => {
+  // The beforeEach above has already seeded the module-level cache with the
+  // default rules and mocked getSession to null.
+
+  function isoFromNow(offsetHours: number): string {
+    return new Date(Date.now() + offsetHours * 3.6e6).toISOString();
+  }
+
+  it("paints a 1h-future item with Today (amber)", () => {
+    expect(colorFor(isoFromNow(1))?.toLowerCase()).toBe("#d28c2a");
+  });
+
+  it("paints a 25h-future item with This week (green)", () => {
+    expect(colorFor(isoFromNow(25))?.toLowerCase()).toBe("#3f7d6e");
+  });
+
+  it("paints a 1h-past item with Overdue (red) — withinHours=0 boundary rule", () => {
+    expect(colorFor(isoFromNow(-1))?.toLowerCase()).toBe("#b4452f");
+  });
+
+  it("paints a 12h-past item with Overdue (red) — still within the boundary rule", () => {
+    expect(colorFor(isoFromNow(-12))?.toLowerCase()).toBe("#b4452f");
   });
 });
