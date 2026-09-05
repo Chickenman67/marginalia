@@ -463,6 +463,8 @@ async function setRating(id: string, rating: number, items: Item[]) {
   const it = items.find((x) => x.id === id);
   if (!it) return;
   const previous = it.rating;
+  const row = document.querySelector<HTMLElement>(`.stars[data-item="${id}"]`);
+  if (row) row.dataset.previousRating = String(previous);
   const local = items.map((x) => (x.id === id ? { ...x, rating } : x));
   setItems(local);
   try {
@@ -483,6 +485,13 @@ export function starHoverValue(pos: number, offsetX: number, starWidth: number):
 
 function bindStarEvents(host: HTMLElement, items: Item[]) {
   host.querySelectorAll<HTMLElement>(".stars").forEach((row) => {
+    row.addEventListener("mouseenter", () => {
+      if (host.querySelector(".card.selected")) return; // selection mode
+      row.dataset.editing = "1";
+    });
+    row.addEventListener("mouseleave", () => {
+      if (row.dataset.editing !== undefined) delete row.dataset.editing;
+    });
     row.querySelectorAll<HTMLElement>(".star").forEach((starEl) => {
       starEl.addEventListener("mousemove", (e) => {
         if (host.querySelector(".card.selected")) return; // selection mode
