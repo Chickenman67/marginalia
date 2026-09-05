@@ -18,6 +18,20 @@ export function starSymbolHTML(): string {
 
 export function starHTML(rating: number, itemId: string): string {
   const r = Math.max(0, Math.min(5, Math.round(rating * 2) / 2));
+
+  // Preserve the editing-pin across innerHTML swaps. If the user is hovering
+  // a row (data-editing="1"), the render path will replace this element with
+  // a brand-new .stars row; we copy the pin attributes onto the new row so
+  // getPinnedRatings still sees it before bindStarEvents re-applies them.
+  let pinAttrs = "";
+  if (typeof document !== "undefined") {
+    const prev = document.querySelector<HTMLElement>(`.stars[data-item="${itemId}"][data-editing]`);
+    if (prev) {
+      const prevRating = prev.dataset.previousRating;
+      pinAttrs = ` data-editing="1"${prevRating !== undefined ? ` data-previous-rating="${prevRating}"` : ""}`;
+    }
+  }
+
   let stars = "";
   for (let i = 1; i <= 5; i++) {
     if (r >= i) {
@@ -51,7 +65,7 @@ export function starHTML(rating: number, itemId: string): string {
 
   const tipText = r === 0 ? "" : (r % 1 === 0 ? String(r) : r.toFixed(1));
 
-  return `<span class="stars" role="radiogroup" aria-label="Rating" data-item="${itemId}">${stars}<span class="preview" aria-hidden="true">${preview}</span><span class="tip" aria-hidden="true">${tipText}</span></span>`;
+  return `<span class="stars" role="radiogroup" aria-label="Rating" data-item="${itemId}"${pinAttrs}>${stars}<span class="preview" aria-hidden="true">${preview}</span><span class="tip" aria-hidden="true">${tipText}</span></span>`;
 }
 
 export function starClickValue(pos: number, zone: "half" | "whole", current: number, shiftKey: boolean): number {

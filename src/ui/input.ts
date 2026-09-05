@@ -418,6 +418,15 @@ export function mountViews(): void {
   }
 }
 
+// Track which item ids are currently being edited (cursor inside the .stars
+// row) so we can re-apply `data-editing` / `data-previous-rating` to a fresh
+// row after the host's innerHTML is replaced. Without this, the next render
+// cycle reads an empty pinned map and the priority comparator uses the
+// freshly updated rating — so the row the user is editing reorders under
+// their cursor from the second click onward.
+const editingRows = new Set<string>();
+const editingPrevious = new Map<string, number>();
+
 // --- Manual Schedule entry with a calendar popover + time picker ---
 const form = el<HTMLFormElement>("#addEvent");
 const dateTrigger = el<HTMLButtonElement>("#evDate");
@@ -465,6 +474,9 @@ async function setRating(id: string, rating: number, items: Item[]) {
   const previous = it.rating;
   const row = document.querySelector<HTMLElement>(`.stars[data-item="${id}"]`);
   if (row) row.dataset.previousRating = String(previous);
+  // Mirror the previous rating into module-level state so it survives the
+  // innerHTML wipe that setItems -> renderAll triggers.
+  editingPrevious.set(id, previous);
   const local = items.map((x) => (x.id === id ? { ...x, rating } : x));
   setItems(local);
   try {
@@ -484,13 +496,32 @@ export function starHoverValue(pos: number, offsetX: number, starWidth: number):
 }
 
 function bindStarEvents(host: HTMLElement, items: Item[]) {
+  // Re-apply the editing-pin state to any rows that were editing before the
+  // innerHTML wipe. The post-render .stars element is brand new, so it has
+  // no data-editing / data-previous-rating attributes yet — restore them from
+  // module-level state so getPinnedRatings can still see them.
+  for (const id of editingRows) {
+    const row = host.querySelector<HTMLElement>(`.stars[data-item="${id}"]`);
+    if (!row) continue;
+    row.dataset.editing = "1";
+    if (row.dataset.previousRating === undefined && editingPrevious.has(id)) {
+      row.dataset.previousRating = String(editingPrevious.get(id));
+    }
+  }
+
   host.querySelectorAll<HTMLElement>(".stars").forEach((row) => {
     row.addEventListener("mouseenter", () => {
       if (host.querySelector(".card.selected")) return; // selection mode
       row.dataset.editing = "1";
+      editingRows.add(row.dataset.item!);
     });
     row.addEventListener("mouseleave", () => {
       if (row.dataset.editing !== undefined) delete row.dataset.editing;
+      const id = row.dataset.item;
+      if (id !== undefined) {
+        editingRows.delete(id);
+        editingPrevious.delete(id);
+      }
     });
     row.querySelectorAll<HTMLElement>(".star").forEach((starEl) => {
       starEl.addEventListener("mousemove", (e) => {
