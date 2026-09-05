@@ -166,7 +166,11 @@ function manualComparator(a: Item, b: Item): number {
 
 type V2State = ScheduleState | TodosState | DueState;
 
-export function applyViewV2(items: Item[], state: V2State): Item[] {
+export function applyViewV2(
+  items: Item[],
+  state: V2State,
+  pinned: Map<string, number> = new Map()
+): Item[] {
   const q = state.search.trim().toLowerCase();
   let out = items.filter((i) => {
     if (q && !i.title.toLowerCase().includes(q)) return false;
@@ -224,7 +228,7 @@ export function applyViewV2(items: Item[], state: V2State): Item[] {
   const sort = (state as any).sort as string;
   const dir = (state as any).dir as Dir;
   const baseCmp = {
-    priority: priorityComparator,
+    priority: (a: Item, b: Item) => priorityComparator(a, b, pinned),
     date: dateComparator,
     title: titleComparator,
     manual: manualComparator

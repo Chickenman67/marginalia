@@ -1,7 +1,7 @@
 import { addItem, subscribe, deleteItem, setItems } from "../store";
 import { parsePhrase, polishPhrase, updateItem } from "../supabase";
 import { createSpeech } from "../speech";
-import { cardHTML, bindCardEvents, groupByDay, esc, applyViewV2, starClickValue, type ScheduleState, type TodosState, type DueState } from "./views";
+import { cardHTML, bindCardEvents, groupByDay, esc, applyViewV2, getPinnedRatings, starClickValue, type ScheduleState, type TodosState, type DueState } from "./views";
 import { mountFilterPanel } from "./filterPanel";
 import { openCalendar, openTimePicker } from "./calendar";
 import { getSettings, formatClock, subscribeSettings } from "../settings";
@@ -379,13 +379,25 @@ export function mountViews(): void {
   });
 
   function renderAll(items: Item[]) {
-    const events = applyViewV2(items.filter((i) => i.kind === "event"), scheduleState);
-    const todos = applyViewV2(items.filter((i) => i.kind === "todo"), todosState);
+    const events = applyViewV2(
+      items.filter((i) => i.kind === "event"),
+      scheduleState,
+      getPinnedRatings(vSched)
+    );
+    const todos = applyViewV2(
+      items.filter((i) => i.kind === "todo"),
+      todosState,
+      getPinnedRatings(vTodo)
+    );
     // For the due view, the spec excludes done items. Show anything with a
     // reminder or a future datetime — applyViewV2's "week" branch decides if
     // it actually matches the active window.
     const dueNotDone = items.filter((i) => i.status !== "done" && (i.reminder || i.datetime));
-    const dueShown = applyViewV2(dueNotDone, dueState);
+    const dueShown = applyViewV2(
+      dueNotDone,
+      dueState,
+      getPinnedRatings(vDue)
+    );
 
     cSched.textContent = String(events.filter((i) => i.status !== "done").length || "");
     cTodo.textContent = String(todos.filter((i) => i.status !== "done").length || "");
