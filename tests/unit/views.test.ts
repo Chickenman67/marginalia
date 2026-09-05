@@ -251,4 +251,35 @@ describe("style.css — weekday + todo sizing", () => {
     expect(p3).toBeLessThan(p5);
     expect(p5).toBe(100);
   });
+  it(".stars hover preview overlay fills the expected stars for each hover value", () => {
+    // The CSS groups many selectors into a single comma-separated rule whose
+    // body is `display: block`. Extract that block by anchoring on
+    // `.stars[data-hover="0.5"] .preview-star[data-pos="1"] .fill` (the first
+    // selector in the list) and ending at the next `}`.
+    const cases: Array<[string, number[]]> = [
+      ["0.5", [1]],
+      ["1", [1]],
+      ["1.5", [1, 2]],
+      ["2", [1, 2]],
+      ["2.5", [1, 2, 3]],
+      ["3", [1, 2, 3]],
+      ["3.5", [1, 2, 3, 4]],
+      ["4", [1, 2, 3, 4]],
+      ["4.5", [1, 2, 3, 4, 5]],
+      ["5", [1, 2, 3, 4, 5]]
+    ];
+    const anchorIdx = css.indexOf('.stars[data-hover="0.5"] .preview-star[data-pos="1"] .fill');
+    expect(anchorIdx, "expected the first hover-fill selector in the stylesheet").toBeGreaterThanOrEqual(0);
+    const braceIdx = css.indexOf("}", anchorIdx);
+    expect(braceIdx, "expected the rule to close with a brace").toBeGreaterThan(anchorIdx);
+    const block = css.slice(anchorIdx, braceIdx + 1);
+    expect(block).toContain("display: block");
+    for (const [v, positions] of cases) {
+      for (const p of positions) {
+        expect(block).toContain(
+          `.stars[data-hover="${v}"] .preview-star[data-pos="${p}"] .fill`
+        );
+      }
+    }
+  });
 });
