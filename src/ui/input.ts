@@ -461,9 +461,26 @@ async function setRating(id: string, rating: number, items: Item[]) {
   }
 }
 
+// Compute the rating value a star hover should preview, given the star's
+// position (1..5) and the cursor's offsetX within the star element.
+// Exported so the hover preview logic can be unit-tested.
+export function starHoverValue(pos: number, offsetX: number, starWidth: number): number {
+  const zone: "half" | "whole" = offsetX < starWidth / 2 ? "half" : "whole";
+  return zone === "whole" ? pos : pos - 0.5;
+}
+
 function bindStarEvents(host: HTMLElement, items: Item[]) {
   host.querySelectorAll<HTMLElement>(".stars").forEach((row) => {
     row.querySelectorAll<HTMLElement>(".star").forEach((starEl) => {
+      starEl.addEventListener("mousemove", (e) => {
+        if (host.querySelector(".card.selected")) return; // selection mode
+        const pos = Number(starEl.dataset.pos);
+        const me = e as MouseEvent;
+        row.dataset.hover = String(starHoverValue(pos, me.offsetX, starEl.clientWidth));
+      });
+      starEl.addEventListener("mouseleave", () => {
+        if (row.dataset.hover !== undefined) delete row.dataset.hover;
+      });
       starEl.addEventListener("click", async (e) => {
         if (host.querySelector(".card.selected")) return; // selection mode
         e.stopPropagation();

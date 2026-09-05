@@ -1,6 +1,13 @@
-import { describe, it, expect } from "vitest";
+// @vitest-environment jsdom
+import { describe, it, expect, beforeEach } from "vitest";
 import { starHTML, starSymbolHTML } from "../../src/ui/views";
 import { STAR_EMPTY_FILL } from "../../src/ui/views";
+
+beforeEach(() => {
+  document.body.innerHTML = `
+    <form id="addEvent"><button id="evDate" type="button"></button><button id="evTimeTrigger" type="button"></button><input type="checkbox" id="evAllDay" /></form>
+  `;
+});
 
 function countOccurrences(haystack: string, needle: string): number {
   return haystack.split(needle).length - 1;
@@ -63,6 +70,28 @@ describe("starSymbolHTML", () => {
   it("returns a <symbol> with id=starShape", () => {
     expect(starSymbolHTML()).toContain("id=\"starShape\"");
     expect(starSymbolHTML()).toContain("<symbol");
+  });
+});
+
+describe("starHoverValue", () => {
+  it("returns the half-step when offsetX is in the left half of the star", async () => {
+    const { starHoverValue } = await import("../../src/ui/input");
+    expect(starHoverValue(1, 0, 20)).toBe(0.5);
+    expect(starHoverValue(3, 9, 20)).toBe(2.5);
+    expect(starHoverValue(5, 1, 20)).toBe(4.5);
+  });
+
+  it("returns the full step when offsetX is in the right half of the star", async () => {
+    const { starHoverValue } = await import("../../src/ui/input");
+    expect(starHoverValue(1, 10, 20)).toBe(1);
+    expect(starHoverValue(1, 19, 20)).toBe(1);
+    expect(starHoverValue(3, 15, 20)).toBe(3);
+    expect(starHoverValue(5, 20, 20)).toBe(5);
+  });
+
+  it("treats offsetX exactly at half-width as the right half (full step)", async () => {
+    const { starHoverValue } = await import("../../src/ui/input");
+    expect(starHoverValue(2, 10, 20)).toBe(2);
   });
 });
 

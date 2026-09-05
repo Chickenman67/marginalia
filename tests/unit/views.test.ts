@@ -234,4 +234,21 @@ describe("style.css — weekday + todo sizing", () => {
   it("uses a darker --star-empty so unrated stars are clearly visible", () => {
     expect(css).toMatch(/--star-empty:\s*#c4baa6/);
   });
+
+  it(".stars::before is the hover preview overlay", () => {
+    expect(css).toMatch(/\.stars::before\s*\{/);
+  });
+  it(".stars hover preview maps data-hover values to widths (0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5)", () => {
+    for (const v of ["0.5", "1", "1.5", "2", "2.5", "3", "3.5", "4", "4.5", "5"]) {
+      expect(css).toMatch(new RegExp(`\\.stars\\[data-hover="${v}"\\]::before\\s*\\{[^}]*width:\\s*\\d`));
+    }
+  });
+  it(".stars hover preview is wider for higher values (e.g. 5 > 3 > 1)", () => {
+    const w1 = Number(css.match(/\.stars\[data-hover="1"\]::before\s*\{[^}]*width:\s*(\d+)%/)?.[1]);
+    const w3 = Number(css.match(/\.stars\[data-hover="3"\]::before\s*\{[^}]*width:\s*(\d+)%/)?.[1]);
+    const w5 = Number(css.match(/\.stars\[data-hover="5"\]::before\s*\{[^}]*width:\s*(\d+)%/)?.[1]);
+    expect(w1).toBeLessThan(w3);
+    expect(w3).toBeLessThan(w5);
+    expect(w5).toBe(100);
+  });
 });

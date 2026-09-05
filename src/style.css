@@ -335,11 +335,46 @@ main { flex: 1; padding: 18px 22px 150px; }
 .day-del:hover { color: var(--ink); }
 
 /* star widget */
-.stars { display: inline-flex; gap: 0; align-items: center; min-width: 0; }
+.stars { display: inline-flex; gap: 0; align-items: center; min-width: 0; position: relative; }
 .stars .star { width: 18px; height: 18px; display: inline-block; cursor: pointer; line-height: 0; padding: 0; color: inherit; text-align: start; font: inherit; }
-.stars .star svg { display: block; width: 100%; height: 100%; pointer-events: none; }
+.stars .star svg { display: block; width: 100%; height: 100%; pointer-events: none; transition: transform .12s ease, filter .12s ease; }
 .stars .star.empty svg { opacity: 1; }
 .card.todo .stars .star { width: 20px; height: 20px; }
+
+/* Hover preview: a gold overlay is drawn over the row from the left up to the
+   hovered position. The overlay is a single ::before element; its width is
+   controlled by the data-hover attribute set in bindStarEvents. Whole-star
+   positions (1..5) and half positions (0.5, 1.5, 2.5, 3.5, 4.5) are mapped to
+   the same percentage so the overlay stops at the right edge of the chosen
+   star, or halfway across it for half steps. */
+.stars::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(245, 197, 24, 0.45), rgba(245, 197, 24, 0.45));
+  transition: width .12s ease;
+  border-radius: 2px;
+}
+.stars[data-hover="0.5"]::before { width: 10%; }
+.stars[data-hover="1"]::before   { width: 20%; }
+.stars[data-hover="1.5"]::before { width: 30%; }
+.stars[data-hover="2"]::before   { width: 40%; }
+.stars[data-hover="2.5"]::before { width: 50%; }
+.stars[data-hover="3"]::before   { width: 60%; }
+.stars[data-hover="3.5"]::before { width: 70%; }
+.stars[data-hover="4"]::before   { width: 80%; }
+.stars[data-hover="4.5"]::before { width: 90%; }
+.stars[data-hover="5"]::before   { width: 100%; }
+
+/* Make the hovered star pop a touch so the cursor location is obvious. */
+.stars[data-hover] .star:hover svg {
+  transform: scale(1.15);
+  filter: drop-shadow(0 1px 1px rgba(58, 46, 16, 0.35));
+}
 
 /* filter pill + panel */
 .filter-pill {
