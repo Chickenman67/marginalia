@@ -130,8 +130,26 @@ function inThisMonth(iso: string): boolean {
   return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
 }
 
-function priorityComparator(a: Item, b: Item): number {
-  return b.rating - a.rating; // higher first
+export function priorityComparator(
+  a: Item,
+  b: Item,
+  pinned: Map<string, number> = new Map()
+): number {
+  const ar = pinned.get(a.id) ?? a.rating;
+  const br = pinned.get(b.id) ?? b.rating;
+  return br - ar;
+}
+
+export function getPinnedRatings(host: HTMLElement): Map<string, number> {
+  const out = new Map<string, number>();
+  host.querySelectorAll<HTMLElement>(".stars[data-editing]").forEach((row) => {
+    const id = row.dataset.item;
+    const prev = row.dataset.previousRating;
+    if (id !== undefined && prev !== undefined) {
+      out.set(id, Number(prev));
+    }
+  });
+  return out;
 }
 function dateComparator(a: Item, b: Item): number {
   if (!a.datetime && !b.datetime) return 0;
