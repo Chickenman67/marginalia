@@ -54,10 +54,13 @@ export function starHTML(rating: number, itemId: string): string {
     }
   }
 
+  // Each preview-star is just the gold fill — the empty-fill shape underneath
+  // is already painted by the committed stars, so we don't repeat it here.
+  // (Without this, the preview overlay would cover the committed stars with
+  // 5 dark SVG fills that read as a single dark blob on hover.)
   let preview = "";
   for (let i = 1; i <= 5; i++) {
     preview += `<svg class="preview-star" viewBox="0 0 24 24" data-pos="${i}">
-      <use href="#${STAR_SYMBOL_ID}" fill="${STAR_EMPTY_FILL}" stroke="none"/>
       <g class="fill"><use href="#${STAR_SYMBOL_ID}" fill="#f5c518" stroke="none"/></g>
     </svg>`;
   }
