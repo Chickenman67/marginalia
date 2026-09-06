@@ -14,6 +14,15 @@ Default five canonical triage labels: `needs-triage`, `needs-info`, `ready-for-a
 
 Single-context layout — root `CONTEXT.md` + `docs/adr/`. See `docs/agents/domain.md`.
 
+### Agent auth bypass (Playwright storage state)
+
+The app boots behind a Supabase Auth sign-in screen. To get past it without going through the form:
+
+- The Playwright MCP entry in `opencode.json` is launched with `--isolated --storage-state` pointing at `C:\Users\<you>\.config\opencode\todoapp-agent-storage.json` (JSON-escaped in the config). Every browser session auto-loads the persisted Supabase session; `onAuthStateChange` fires on first paint, the auth screen never appears.
+- The storage file is produced by `scripts/agent-login.mjs` (one-time, after `scripts/agent-init.mjs` writes the test user's email/password to the OS keychain under service `todoapp-agent`). When the Supabase refresh token expires (default 1 hour idle) the first request returns 401; tell the user "I'll re-login" and run `node scripts/agent-refresh.mjs` to mint a fresh storage state.
+- The test user is dedicated and isolated from David's real account. Credentials live in the OS keychain (Windows DPAPI), not on disk. Spec: `docs/superpowers/specs/2026-09-03-agent-auth-bypass-design.md`. Plan: `docs/superpowers/plans/2026-09-03-agent-auth-bypass.md`.
+- If the user reports "I'm stuck on the sign-in screen" in a fresh session, the storage state is likely stale — run `scripts/agent-refresh.mjs` and retry.
+
 ## David's preferences & goals
 
 Maintained by the agent as they surface. Standing rule: keep this section updated.
