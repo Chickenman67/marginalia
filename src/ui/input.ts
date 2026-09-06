@@ -562,9 +562,15 @@ export function bindStarEvents(host: HTMLElement, items: Item[]) {
         const me = e as MouseEvent;
         const value = starHoverValue(pos, me.offsetX, starEl.clientWidth);
         row.dataset.hover = String(value);
-        // Update the tip text to follow the cursor.
+        // Update the tip text to follow the cursor. When the hovered position
+        // matches the current rating, show "Clear" so the toggle-off action
+        // (click same star to clear) is discoverable.
         const tip = row.querySelector<HTMLElement>(".tip");
-        if (tip) tip.textContent = String(value);
+        if (tip) {
+          const id = row.dataset.item;
+          const it = id !== undefined ? items.find((x) => x.id === id) : undefined;
+          tip.textContent = (it && value === it.rating) ? "Clear" : String(value);
+        }
       });
       starEl.addEventListener("mouseleave", () => {
         if (row.dataset.hover !== undefined) delete row.dataset.hover;
