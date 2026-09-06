@@ -238,6 +238,34 @@ describe("style.css — weekday + todo sizing", () => {
   it(".stars .preview is the hover preview overlay", () => {
     expect(css).toMatch(/\.stars\s+\.preview\s*\{/);
   });
+  it(".stars .preview uses percentage columns (20%) so cells are square, not 1fr", () => {
+    // Regression: each .preview-star cell must be a square matching one
+    // committed star's width. `repeat(5, 1fr)` collapses to each SVG's
+    // min-content (~10px), producing 10x18 elongated "stretched" stars
+    // instead of clean 18x18 squares. Fix is `repeat(5, 20%)`.
+    const previewBlock = css.match(/\.stars\s+\.preview\s*\{([^}]*)\}/)?.[1] ?? "";
+    expect(previewBlock, "expected a .stars .preview rule block").toBeTruthy();
+    expect(previewBlock).toMatch(/grid-template-columns\s*:\s*repeat\(\s*5\s*,\s*20%\s*\)/);
+    expect(previewBlock).not.toMatch(/grid-template-columns\s*:\s*repeat\(\s*5\s*,\s*1fr\s*\)/);
+  });
+  it(".stars .preview does not inherit the dock .preview background (regression: black pill on star hover in todo tab)", () => {
+    // The dock's `.preview` (parse-preview text box) sets `background: var(--ink)`.
+    // Without an explicit reset on `.stars .preview`, that black background bleeds
+    // into the star hover overlay and renders a black pill that hides the
+    // committed stars / hover preview. The fix is to either rename the dock
+    // class or reset background (and any other leaked box properties) on the
+    // star preview overlay.
+    const previewBlock = css.match(/\.stars\s+\.preview\s*\{([^}]*)\}/)?.[1] ?? "";
+    expect(previewBlock, "expected a .stars .preview rule block").toBeTruthy();
+    // Must explicitly neutralize background and box-shadow so the dock rule
+    // (background: var(--ink); box-shadow: var(--shadow)) doesn't bleed through.
+    expect(previewBlock, ".stars .preview must reset background (transparent or none)").toMatch(/background\s*:\s*(transparent|none|inherit|0)/);
+    expect(previewBlock, ".stars .preview must reset box-shadow").toMatch(/box-shadow\s*:\s*(none|transparent|0|inherit)/);
+    // Padding/font-size from the dock `.preview` (10px 13px / 14px) would also
+    // bloat the overlay into a pill, so those need resetting too.
+    expect(previewBlock, ".stars .preview must reset padding to 0").toMatch(/padding\s*:\s*0/);
+    expect(previewBlock, ".stars .preview must reset font-size").toMatch(/font-size\s*:/);
+  });
   it(".stars hover preview maps data-hover values to tip positions (0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5)", () => {
     for (const v of ["0.5", "1", "1.5", "2", "2.5", "3", "3.5", "4", "4.5", "5"]) {
       expect(css).toMatch(new RegExp(`\\.stars\\[data-hover="${v}"\\]\\s+\\.tip\\s*\\{[^}]*left:\\s*\\d+%`));
