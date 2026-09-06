@@ -33,95 +33,76 @@ embeds `starHTML`, currently the Todo and Due tabs):
 
 ### 1. Fix the preview-star sizing
 
-**Root cause (confirmed by reading `src/style.css:359–380` and `src/ui/views.ts:19–71`):**
+**Root cause (confirmed via live DOM measurement, see commit message):**
 
 `.stars .preview` is `position: absolute; inset: 0; display: grid;
-grid-template-columns: repeat(5, 1fr);`. The grid has **no row track** defined,
-so the row height auto-sizes from content. The children are `<svg
+grid-template-columns: repeat(5, 1fr);`. Each child is `<svg
 class="preview-star" viewBox="0 0 24 24">` with `width: 100%; height: 100%`.
-The `.stars` row is `inline-flex` with committed `.star` siblings of `18px` (or
-`20px` on `.card.todo`); the `.preview` overlay is `position: absolute` so it
-does not contribute to the row's intrinsic height. The grid cell therefore
-auto-sizes from the SVG's intrinsic aspect — but with conflicting `100%` /
-`viewBox` sizing, browsers resolve inconsistently across layout passes,
-producing elongated/distorted star shapes.
+The SVG's min-content width (computed by the layout engine given the
+`viewBox` + `width:100%` + parent has no explicit size) is `~10px`, so each
+`1fr` column collapses to that min-content. Result: each preview-star renders
+**10×18 (ratio 0.56)** — elongated, smeared star spikes.
 
-**Fix:** Force the grid row to match the column aspect (1:1) so each cell is a
-square, and let the SVG render inside it at its natural aspect.
+Measured (Chromium, 18px stars): `.preview` = 90×18, columns = `10px 10px
+10px 10px 10px` (50px total), each preview-star = 10×18.
+
+**Fix:** Replace `repeat(5, 1fr)` with `repeat(5, 20%)`. With a fixed
+percentage, columns distribute to 18px on the default star row (5×18=90) and
+20px on a `.card.todo` row (5×20=100), matching the committed-star widths.
+The SVG's `width: 100%; height: 100%` then resolves to a square cell whose
+size matches a single committed star — aspect 1:1, clean star shape.
 
 ```css
-/* src/style.css — extend the existing .stars .preview rule */
+/* src/style.css — one-line fix */
 .stars .preview {
   /* …existing rules… */
-  grid-template-rows: 1fr;          /* NEW: square cells, matches column aspect */
-  align-items: center;
-  justify-items: center;
-}
-.stars .preview-star {
-  /* …existing rules… */
-  width: 100%;
-  height: 100%;
-  aspect-ratio: 1;                  /* NEW: belt-and-braces if grid row drifts */
-  display: block;
+  grid-template-columns: repeat(5, 20%);   /* CHANGED from repeat(5, 1fr) */
 }
 ```
 
-If after the change the preview stars still don't render square in some
-browsers, the fallback is to give `.preview` an explicit `aspect-ratio: 5 / 1`
-(width 5 cells, height 1 row) so the overlay is always exactly as tall as it
-is wide / 5 — matching one star's intrinsic size.
+Verified locally: with `20%` columns the same 90×18 overlay yields 5
+preview-stars at 18×18 each, square.
 
 ### 2. Clear-rating affordance
 
-**Behaviour:** Clicking a star at the same position-and-zone as the user's
-current rating clears the rating to `0` instead of being a no-op. This works
-identically on desktop click and on touch tap (no keyboard modifier required).
+**Already implemented.** `starClickValue` in `src/ui/views.ts:73–78` already
+returns `0` when `target === current` (i.e. clicking the star at your
+current rating). The behaviour is identical on desktop click and touch tap,
+no keyboard modifier required. Coverage: `tests/unit/star-click.test.ts`
+already asserts the toggle-off behaviour.
 
-- `starClickValue(pos, zone, current, shiftKey)` in `src/ui/views.ts:73` —
-  extend to return `0` when `target === current`, not just on shift.
-- `setRating(id, 0, items)` is already supported by the store.
-- Tooltip hint: when the user hovers a star whose `value` equals the current
-  rating, the `.tip` text changes from `"3"` to `"Clear"` so the action is
-  discoverable on first hover. The hint lives only in the existing tooltip —
-  no new UI chrome.
+What is **missing** is the discoverability hint:
 
 ```ts
-// src/ui/views.ts — extend starClickValue
-export function starClickValue(pos, zone, current, shiftKey): number {
-  if (shiftKey) return 0;
-  const target = zone === "whole" ? pos : pos - 0.5;
-  if (target === current) return 0;   // NEW: same position = clear
-  return target;
-}
-```
-
-```ts
-// src/ui/input.ts — hover handler updates tip text per mousemove
+// src/ui/input.ts — extend the existing mousemove handler
 starEl.addEventListener("mousemove", (e) => {
-  // …existing code computing `value`…
+  // …existing code that computes `value`…
   row.dataset.hover = String(value);
   const tip = row.querySelector<HTMLElement>(".tip");
   if (tip) {
-    tip.textContent = (value === currentRating) ? "Clear" : String(value);  // CHANGED
+    const it = items.find((x) => x.id === row.dataset.item);  // NEW
+    tip.textContent = (it && value === it.rating) ? "Clear" : String(value);  // CHANGED
   }
 });
 ```
 
-`starHTML` keeps the existing tip-text formula (committed rating only) so the
-pill shows the committed value when the mouse leaves the row. The "Clear"
-hint appears live, on mousemove, when the cursor enters the star at the
-current rating.
+When the cursor enters a star whose value equals the current rating, the
+pill text changes from `"3"` to `"Clear"`. The hint disappears the moment
+the cursor moves to a different star or leaves the row (existing
+`mouseleave` handler restores the committed rating text).
+
+`starHTML` itself is unchanged: its initial tip text is the committed rating,
+which is correct for the no-hover state.
 
 ### Scope of changes
 
 | File                                       | Change                                                     |
 | ------------------------------------------ | ---------------------------------------------------------- |
-| `src/style.css`                            | Add `grid-template-rows: 1fr` and `aspect-ratio: 1` to the existing `.stars .preview` / `.stars .preview-star` rules |
-| `src/ui/views.ts`                          | `starClickValue`: clear on same-position click; `starHTML` tip text shows `Clear` when hover equals current rating |
-| `src/ui/input.ts`                          | No structural change; passes `it.rating` already           |
-| `tests/unit/star-click.test.ts`            | Add `starClickValue` same-position clears rating           |
-| `tests/unit/star.test.ts`                  | Add tip-text "Clear" hint regression                        |
-| `tests/unit/views.test.ts`                 | Add CSS regression asserting preview grid has row track    |
+| `src/style.css`                            | One-line change: `.stars .preview` column track `repeat(5, 1fr)` → `repeat(5, 20%)` |
+| `src/ui/input.ts`                          | In `bindStarEvents` mousemove handler, set tip text to `"Clear"` when `value === it.rating`, else `String(value)` |
+| `tests/unit/star-click.test.ts`            | No new test (toggle-off already covered)                    |
+| `tests/unit/star.test.ts`                  | Regression: render a row, hover same-rating star, assert tip text = "Clear" |
+| `tests/unit/views.test.ts`                 | Regression: `.stars .preview` rule uses `repeat(5, 20%)` (not `1fr`) |
 
 ### Out of scope
 
@@ -134,11 +115,14 @@ current rating.
 
 ### Risk
 
-- **Visual regression in other places using `display: grid;
-  grid-template-columns: repeat(5, 1fr)`** — there are none in `src/`.
-- **`grid-template-rows: 1fr` interaction with the row's `align-items: center`
-  flex** — orthogonal; the `.preview` overlay is `position: absolute`, so
-  flex alignment on `.stars` does not affect it.
+- **`20%` columns assume the `.stars` row's content fits the overlay width
+  exactly.** It does: `.stars` is `inline-flex` of 5 `.star` siblings of fixed
+  width (18 or 20px) = 90 or 100px total. The `.preview` overlay is
+  `inset: 0`, so it spans the same width.
+- **A future change that varies `.star` widths** (e.g. a 3-star widget) would
+  break the `20%` assumption. The plan adds a CSS-regression test that pins
+  the column track to `repeat(5, 20%)` so the next person changing the rule
+  is forced to update the test.
 - **Tooltip `Clear` text length** — `Clear` is 5 chars vs `5` is 1 char; the
   pill will widen, but `white-space: nowrap` is already on `.stars .tip` and
   there is plenty of headroom above the row.
