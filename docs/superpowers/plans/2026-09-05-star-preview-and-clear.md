@@ -224,7 +224,23 @@ git -c user.email=marginalia@dev.invalid -c user.name=Chickenman67 \
 - Consumes: existing helpers `starHTML` and the jsdom env (top of file uses `// @vitest-environment jsdom`)
 - Produces: a vitest assertion that fails today (tip text is the rating number) and passes after Task 4
 
-- [ ] **Step 1: Add the failing test**
+- [ ] **Step 1: Export `bindStarEvents` so the test can reach it**
+
+Open `src/ui/input.ts:511`. Change:
+
+```ts
+function bindStarEvents(host: HTMLElement, items: Item[]) {
+```
+
+to:
+
+```ts
+export function bindStarEvents(host: HTMLElement, items: Item[]) {
+```
+
+(Save this for the Task 3 commit; do not bundle it with Task 4.)
+
+- [ ] **Step 2: Add the failing test**
 
 Append to `tests/unit/star.test.ts`:
 
@@ -283,7 +299,7 @@ describe("star hover — Clear hint", () => {
 
 The `import { bindStarEvents } from "../../src/ui/input";` line goes near the top of the file (after the existing imports).
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [ ] **Step 3: Run the test to verify it fails**
 
 ```bash
 npx vitest run tests/unit/star.test.ts -t "Clear hint"
@@ -291,13 +307,15 @@ npx vitest run tests/unit/star.test.ts -t "Clear hint"
 
 Expected: **FAIL** — `star.test.ts:tip-text` asserts `"4"` but currently receives `"4"` (the number) for the "different rating" case (which should already pass), and the "Clear" test fails with `expected '4' to be 'Clear'`.
 
-- [ ] **Step 3: Commit the failing test**
+- [ ] **Step 4: Commit the failing test**
 
 ```bash
-git add tests/unit/star.test.ts
+git add tests/unit/star.test.ts src/ui/input.ts
 git -c user.email=marginalia@dev.invalid -c user.name=Chickenman67 \
   commit -m "test(stars): Clear hint on hover-equal-current rating"
 ```
+
+(Note: `src/ui/input.ts` is included because Step 1 added `export` to the function signature. This is a single, cohesive commit for "make the function testable" + "the test that proves the bug".)
 
 ---
 
@@ -362,7 +380,7 @@ Expected: **PASS** for both tests.
 npx vitest run
 ```
 
-Expected: all tests pass. Watch `tests/unit/star.test.ts`, `tests/unit/star-click.test.ts`, `tests/integration/star-row-stability.test.ts` — the mousemove handler change touches the most fragile code path.
+Expected: all tests pass. Total should be 122 (120 prior + 2 new from Task 3). Watch `tests/unit/star.test.ts`, `tests/unit/star-click.test.ts`, `tests/integration/star-row-stability.test.ts` — the mousemove handler change touches the most fragile code path.
 
 - [ ] **Step 4: Type-check**
 
