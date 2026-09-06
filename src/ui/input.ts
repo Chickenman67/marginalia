@@ -508,7 +508,7 @@ export function starHoverValue(pos: number, offsetX: number, starWidth: number):
   return zone === "whole" ? pos : pos - 0.5;
 }
 
-function bindStarEvents(host: HTMLElement, items: Item[]) {
+export function bindStarEvents(host: HTMLElement, items: Item[]) {
   // Prune module-level editing state for items that no longer exist.
   // When an item is deleted while its row is being hovered, mouseleave never
   // fires on the wiped DOM, so its id would otherwise stay in editingRows /

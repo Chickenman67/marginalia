@@ -2,6 +2,10 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { starHTML, starSymbolHTML } from "../../src/ui/views";
 import { STAR_EMPTY_FILL } from "../../src/ui/views";
+// `bindStarEvents` lives in `input.ts`, but importing it eagerly triggers
+// module-level side effects (date/time trigger initialisation) that need the
+// full input-form DOM. The Clear-hint tests below lazy-import it inside each
+// test so the side effects run with the right DOM, not at collection time.
 
 beforeEach(() => {
   document.body.innerHTML = `
@@ -134,5 +138,66 @@ describe("starHTML — visible empty fill", () => {
     const h = starHTML(0, "x");
     expect(h).toContain('stroke-width="1.8"');
     expect(h).not.toContain('stroke-width="1.4"');
+  });
+});
+
+describe("star hover — Clear hint", () => {
+  it("renders tooltip 'Clear' when hovering the star at the current rating", async () => {
+    // Append (do NOT replace) the host so the input-form from beforeEach stays
+    // mounted — importing input.ts at the bottom of this test re-evaluates
+    // module-level side effects that need the form.
+    const host = document.createElement("div");
+    host.id = "host";
+    host.innerHTML = starHTML(3, "item-1");
+    document.body.appendChild(host);
+
+    const items = [{
+      id: "item-1", space_token: "s", user_id: "", kind: "todo" as const,
+      title: "Test", datetime: null, all_day: false, reminder: null,
+      status: "pending" as const, created_at: "2026-01-01T00:00:00.000Z",
+      order: 0, pinned: false, rating: 3
+    }];
+    const { bindStarEvents } = await import("../../src/ui/input");
+    bindStarEvents(host, items);
+
+    // Dispatch a mousemove on the whole-zone of star 3 (matches rating 3).
+    const star3 = host.querySelector<HTMLElement>('.star[data-pos="3"]')!;
+    Object.defineProperty(star3, "clientWidth", { value: 18, configurable: true });
+    star3.dispatchEvent(new MouseEvent("mousemove", {
+      bubbles: true, clientX: 0, clientY: 0
+    }));
+    // `offsetX` is what `starHoverValue` reads; defineProperty it on the event
+    // since the MouseEvent constructor doesn't take it directly. Right half of
+    // the 18px-wide star → whole zone → value 3.
+    Object.defineProperty(star3, "offsetX", { value: 14, configurable: true });
+    star3.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: 14, clientY: 0 }));
+
+    // Tip text should read "Clear" because value === current rating.
+    const tip = host.querySelector<HTMLElement>(".tip")!;
+    expect(tip.textContent).toBe("Clear");
+  });
+
+  it("renders tooltip number when hovering a different rating", async () => {
+    const host = document.createElement("div");
+    host.id = "host";
+    host.innerHTML = starHTML(3, "item-2");
+    document.body.appendChild(host);
+
+    const items = [{
+      id: "item-2", space_token: "s", user_id: "", kind: "todo" as const,
+      title: "Test", datetime: null, all_day: false, reminder: null,
+      status: "pending" as const, created_at: "2026-01-01T00:00:00.000Z",
+      order: 0, pinned: false, rating: 3
+    }];
+    const { bindStarEvents } = await import("../../src/ui/input");
+    bindStarEvents(host, items);
+
+    const star4 = host.querySelector<HTMLElement>('.star[data-pos="4"]')!;
+    Object.defineProperty(star4, "clientWidth", { value: 18, configurable: true });
+    Object.defineProperty(star4, "offsetX", { value: 14, configurable: true });
+    star4.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: 14, clientY: 0 }));
+
+    const tip = host.querySelector<HTMLElement>(".tip")!;
+    expect(tip.textContent).toBe("4");
   });
 });
