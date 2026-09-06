@@ -360,10 +360,22 @@ main { flex: 1; padding: 18px 22px 150px; }
   position: absolute;
   inset: 0;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(5, 20%);
   pointer-events: none;
   opacity: 0;
   transition: opacity .12s ease;
+  /* Reset properties the dock's `.preview` (parse-preview text box) sets,
+     otherwise they bleed into the star hover overlay and render a black
+     ink-coloured pill that hides the hover preview / committed stars. */
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  font-size: inherit;
+  color: inherit;
+  margin: 0;
+  border-radius: 0;
+  animation: none;
+  gap: 0;
 }
 .stars[data-hover] .preview { opacity: 1; }
 .stars .preview-star { width: 100%; height: 100%; display: block; }
