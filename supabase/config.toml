@@ -8,6 +8,11 @@ port = 54322
 
 [auth]
 enabled = false
+site_url = "https://marginalia-6ek.pages.dev"
+additional_redirect_urls = [
+  "https://marginalia-6ek.pages.dev/**",
+  "http://localhost:5173/**"
+]
 
 [realtime]
 enabled = true

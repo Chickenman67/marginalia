@@ -332,7 +332,13 @@ main { flex: 1; padding: 18px 22px 150px; }
 .btn.ghost { background: none; border: 1px dashed var(--line-strong); color: var(--muted); font-weight: 500; padding: 9px; }
 .btn.ghost:hover { background: var(--paper); color: var(--ink); }
 .toggle { display: flex; align-items: center; gap: 9px; font-size: 14px; color: var(--ink); margin: 4px 0 12px; cursor: pointer; }
-.toggle input { width: 18px; height: 18px; accent-color: var(--ink); }
+.toggle input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--ink); }
+.toggle input[type="number"] { 
+  width: auto; cursor: text; padding: 4px 8px; border-radius: 6px; 
+  border: 1px solid var(--line-strong); background: var(--bg); color: var(--ink); 
+  font: inherit; font-size: 14px; outline: none;
+}
+.toggle input[type="number"]:focus { border-color: var(--ink); }
 
 /* settings tabs */
 .modal.settings { max-width: 380px; }
