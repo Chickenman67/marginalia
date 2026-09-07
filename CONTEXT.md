@@ -2,9 +2,9 @@
 
 Glossary only. No implementation details.
 
-## Space
+## Account (user)
 
-An isolated data partition. Identified by a secret **space token** (random string); no user accounts. Anyone opening the app gets or creates a space. David's personal space is one such token. A space has a `last_active_at` timestamp used for idle expiry (guest spaces expire after a short window; David's space is exempt/long-lived).
+Every user signs in with Supabase Auth (email/password, Google, or GitHub) — no shared tokens. Data is private to that account: RLS policies scope every row to `auth.uid()`. A `profiles` row is auto-created on sign-up and holds display info plus preferences (color rules, time format, auto-delete, provider).
 
 ## Item
 
@@ -33,8 +33,8 @@ Natural-language input ("call mom tomorrow after lunch") is converted to an Item
 
 ## Sync
 
-Cross-device consistency via a dedicated free backend (Supabase), data partitioned by `space_token` (RLS keyed on token, not auth). Realtime updates without login.
+Cross-device consistency via a dedicated free backend (Supabase). Each item belongs to the signed-in user (`user_id`); RLS is keyed on `auth.uid()`, with realtime streaming that user's rows.
 
 ## Export / Import
 
-Per-space backup in readable formats. **Token**: the space token downloads as a `.txt` file (from the "Your space" modal). **Data**: the schedule and todos export as either CSV (`kind,title,datetime,all_day,reminder,status,created_at`) or a human-readable text list; the same file re-imports, with the user choosing **Merge** (append) or **Replace** (clear then load). Works in demo (localStorage) and synced (Supabase) modes.
+Backup in readable formats. The schedule and todos export as either CSV (`kind,title,datetime,all_day,reminder,status,created_at`) or a human-readable text list; the same file re-imports, with the user choosing **Merge** (append) or **Replace** (clear then load). Works in demo (localStorage) and synced (Supabase) modes.

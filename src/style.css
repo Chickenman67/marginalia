@@ -14,8 +14,7 @@
   --danger: #b4452f;
   --shadow: 0 1px 2px rgba(35,32,27,.04), 0 8px 24px rgba(35,32,27,.05);
   --r: 12px;
-  --maxw: 760px;       /* inner text/cards column */
-  --shellw: 1200px;     /* outer shell: header bar + dock + content padding */
+  --maxw: 760px;       /* inner text/cards column; the whole app shell uses this too */
   --star-fill: #f5c518;
   --star-empty: #c4baa6;  /* muted gray-brown, clearly visible against cream card bg */
   --star-stroke: #3a2e10;
@@ -29,9 +28,23 @@ body {
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
-.app { width: 100%; max-width: var(--shellw); min-height: 100vh; margin: 0 auto; display: flex; flex-direction: column; }
 
-header { padding: 22px 22px 0; display: flex; align-items: baseline; gap: 12px; flex-wrap: nowrap; }
+/* Custom scrollbar: a slim, warm thumb that reads as part of the paper theme
+   instead of a chunky OS bar. Applies to the window and inner scrollers. */
+html { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+*::-webkit-scrollbar { width: 12px; height: 12px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 999px;
+  border: 3px solid var(--paper);
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--faint); }
+*::-webkit-scrollbar-corner { background: transparent; }
+
+.app { width: 100%; max-width: var(--maxw); min-height: 100vh; margin: 0 auto; display: flex; flex-direction: column; }
+
+header { padding: 22px 22px 0; display: flex; align-items: center; gap: 16px; flex-wrap: nowrap; }
 header h1 { font-family: "Fraunces", Georgia, serif; font-weight: 500; font-size: 26px; letter-spacing: -.01em; margin: 0; flex: 0 0 auto; }
 header .tag { font-size: 12.5px; color: var(--muted); }
 .space-chip {
@@ -110,7 +123,7 @@ main { flex: 1; padding: 18px 22px 150px; }
   box-sizing: border-box;
 }
 .dock-inner {
-  width: 100%; max-width: 1100px; pointer-events: auto;
+  width: 100%; max-width: var(--maxw); pointer-events: auto;
   background: var(--panel); border: 1px solid var(--line); border-radius: 18px;
   padding: 14px 18px; box-shadow: 0 12px 40px rgba(35,32,27,.12);
   box-sizing: border-box;
@@ -596,16 +609,13 @@ main { flex: 1; padding: 18px 22px 150px; }
 .auth-divider span { background: #fff; padding: 0 8px; }
 .auth-divider::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px solid #e4e0d6; z-index: -1; }
 .auth-social { display: grid; gap: 8px; }
-.auth-social .btn { background: #fff; border: 1px solid #d4cebf; }
+.auth-social .btn { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 12px; background: #fff; border: 1px solid #d4cebf; }
+.auth-social .soc-ic { width: 18px; height: 18px; flex: none; }
+.auth-social .btn:hover { background: #faf7f1; border-color: #bab2a0; }
 .link { background: none; border: 0; color: #3f7d6e; cursor: pointer; padding: 0; margin-top: 8px; font: inherit; }
 .auth-status { min-height: 18px; margin-top: 8px; font-size: 13px; }
 .auth-status.bad { color: #b13a3a; }
 .auth-status.good { color: #2f6b4f; }
-.auth-claim { margin-top: 16px; border-top: 1px solid #e4e0d6; padding-top: 12px; }
-.auth-claim summary { cursor: pointer; font-size: 13px; color: #5a5a5a; }
-.auth-claim p { font-size: 12px; color: #7a7a7a; margin: 6px 0; }
-.auth-claim input { width: 100%; padding: 8px; border: 1px solid #d4cebf; border-radius: 6px; font: inherit; box-sizing: border-box; margin-bottom: 6px; }
-.auth-claim-status { font-size: 12px; min-height: 16px; }
 
 /* --- Screen reader only --- */
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border-width: 0; }
