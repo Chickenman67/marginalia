@@ -43,6 +43,7 @@ describe("user menu header", () => {
           <button id="settingsSave" type="button"></button>
         </section>
         <section class="spanel" data-panel="colors" hidden>
+          <input type="color" id="pastDueColor" />
           <div id="colorRules"></div>
           <button id="addRule" type="button"></button>
         </section>

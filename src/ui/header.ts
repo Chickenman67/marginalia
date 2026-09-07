@@ -1,11 +1,13 @@
 import { STORAGE_KEYS } from "../config";
-import { getSettings, updateSettings, enableNotifications, type ColorRule, DEFAULT_COLOR_RULES, nextColorForNewRule } from "../settings";
+import { getSettings, updateSettings, enableNotifications, type ColorRule, DEFAULT_COLOR_RULES, nextColorForNewRule, cleanColorRules } from "../settings";
 import { testProviderKey } from "../supabase";
 import { getSession, signOut } from "../auth";
 import { esc } from "./views";
 import { toCSV, toText, parseFile, applyImport, download } from "../backup";
 import type { ImportRow } from "../backup";
 import { getItems } from "../store";
+
+let colorRulesSeeded = false;
 
 export async function mountHeader(): Promise<void> {
   const emailEl = document.getElementById("userEmail")!;
@@ -82,6 +84,7 @@ export async function mountHeader(): Promise<void> {
   const setMilitary = document.getElementById("setMilitary") as HTMLInputElement;
   const keyStatus = document.getElementById("keyStatus") as HTMLSpanElement;
   const rulesHost = document.getElementById("colorRules") as HTMLDivElement;
+  const pastDueColor = document.getElementById("pastDueColor") as HTMLInputElement;
 
   function renderRules(rules: ColorRule[]) {
     rulesHost.innerHTML = rules.map((r, idx) => `
@@ -121,15 +124,17 @@ export async function mountHeader(): Promise<void> {
     (document.getElementById("autoDeleteDays") as HTMLInputElement).value = String(s.autoDeleteDays);
     (document.getElementById("setDueIncludeOverdue") as HTMLInputElement).checked = s.dueIncludeOverdue;
     (document.getElementById("setDueDaysAhead") as HTMLInputElement).value = String(s.dueDaysAhead);
+    pastDueColor.value = s.pastDueColor;
     keyStatus.textContent = "";
     keyStatus.className = "key-status";
     renderRules(s.colorRules);
     // First-time seed: if the user has never saved color rules, plant the
     // three default ones. Persisted to Supabase so the next mount sees them.
-    if (s.colorRules.length === 0) {
+    if (s.colorRules.length === 0 && !colorRulesSeeded) {
       const seeded = DEFAULT_COLOR_RULES;
       renderRules(seeded);
       updateSettings({ colorRules: seeded });
+      colorRulesSeeded = true;
     }
     back.classList.add("show");
   };
@@ -138,24 +143,37 @@ export async function mountHeader(): Promise<void> {
   back.addEventListener("click", (e) => {
     if (e.target === back) back.classList.remove("show");
   });
-  document.getElementById("settingsSave")!.addEventListener("click", async () => {
+  document.getElementById("settingsSave")!.addEventListener("click", () => {
     localStorage.setItem(STORAGE_KEYS.llmKey, apiKey.value.trim());
     localStorage.setItem(STORAGE_KEYS.provider, provider.value);
-    await updateSettings({
+
+    const snapshot = {
       autoRemindEvents: setAuto.checked,
       militaryTime: setMilitary.checked,
-      colorRules: readRules(),
+      colorRules: cleanColorRules(readRules()),
       autoDelete: (document.getElementById("setAutoDelete") as HTMLInputElement).checked,
       autoDeleteDays: Math.max(1, Number((document.getElementById("autoDeleteDays") as HTMLInputElement).value) || 30),
       dueIncludeOverdue: (document.getElementById("setDueIncludeOverdue") as HTMLInputElement).checked,
-      dueDaysAhead: Math.max(1, Math.min(365, Number((document.getElementById("setDueDaysAhead") as HTMLInputElement).value) || 7))
-    });
-    if (setNotify.checked) {
-      await enableNotifications();
-    } else {
-      updateSettings({ browserNotifications: false });
-    }
+      dueDaysAhead: Math.max(1, Math.min(365, Number((document.getElementById("setDueDaysAhead") as HTMLInputElement).value) || 7)),
+      pastDueColor: pastDueColor.value
+    };
+    const wantsNotify = setNotify.checked;
+
     back.classList.remove("show");
+
+    void (async () => {
+      try {
+        await updateSettings(snapshot);
+      } catch (e) {
+        console.error("settings save failed", e);
+      }
+      if (wantsNotify) {
+        try { await enableNotifications(); }
+        catch (e) { console.error("notification enable failed", e); }
+      } else {
+        updateSettings({ browserNotifications: false });
+      }
+    })();
   });
 
   document.getElementById("addRule")!.addEventListener("click", () => {
