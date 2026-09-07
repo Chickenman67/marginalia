@@ -18,9 +18,21 @@ export interface Settings {
   browserNotifications: boolean;
   dueIncludeOverdue: boolean;
   dueDaysAhead: number;
+  pastDueColor: string;
 }
 
 let cache: Settings | null = null;
+
+// Drop the legacy Overdue rule and any rule with a 0/negative window, then
+// dedupe by withinHours keeping the LAST rule at each window. Used by both
+// loadSettings (to clean profiles saved before the past-due separation) and
+// the Save handler (to keep user profiles tidy).
+export function cleanColorRules(rules: ColorRule[]): ColorRule[] {
+  const filtered = rules.filter((r) => r.id !== "r-overdue" && r.withinHours > 0);
+  const byHours = new Map<number, ColorRule>();
+  for (const r of filtered) byHours.set(r.withinHours, r);
+  return [...byHours.values()];
+}
 
 export async function loadSettings(): Promise<Settings> {
   const session = await getSession();
@@ -35,10 +47,11 @@ export async function loadSettings(): Promise<Settings> {
       militaryTime: p.military_time,
       autoDelete: p.auto_delete,
       autoDeleteDays: p.auto_delete_days,
-      colorRules: p.color_rules ?? [],
+      colorRules: cleanColorRules(p.color_rules ?? []),
       browserNotifications: typeof Notification !== "undefined" && Notification.permission === "granted",
       dueIncludeOverdue: p.due_include_overdue ?? true,
-      dueDaysAhead: p.due_days_ahead ?? 7
+      dueDaysAhead: p.due_days_ahead ?? 7,
+      pastDueColor: p.past_due_color ?? defaults().pastDueColor
     };
   } catch {
     cache = defaults();
@@ -55,7 +68,8 @@ export function defaults(): Settings {
     colorRules: [],
     browserNotifications: false,
     dueIncludeOverdue: true,
-    dueDaysAhead: 7
+    dueDaysAhead: 7,
+    pastDueColor: "#b4452f"
   };
 }
 
@@ -75,7 +89,8 @@ export async function updateSettings(patch: Partial<Settings>): Promise<void> {
     autoDeleteDays: "auto_delete_days",
     colorRules: "color_rules",
     dueIncludeOverdue: "due_include_overdue",
-    dueDaysAhead: "due_days_ahead"
+    dueDaysAhead: "due_days_ahead",
+    pastDueColor: "past_due_color"
   };
   const profilePatch: Record<string, any> = {};
   for (const [k, v] of Object.entries(patch)) {
@@ -120,34 +135,32 @@ function notifyListeners() {
 }
 
 // Returns the hex color for an item due at `iso`, or null if no rule matches.
-// For past items (hours < 0), the rule with the *largest* withinHours whose
-// window we are still inside of wins. Rules with withinHours >= 0 are the
-// "future" rules; for overdue items we keep returning the most-specific rule
-// that already painted this item while it was still upcoming, so the color
-// doesn't snap to "far future" the moment an item goes overdue.
+//
+// Past-date items (yesterday or earlier by calendar date) always get
+// `settings.pastDueColor`. Items with today's calendar date — even if their
+// specific clock time has already passed — get the Today rule, matching the
+// user's mental model that "Today group = Today color." Future items fall
+// through to the hours-based rule ladder; items beyond all rules return
+// FAR_FUTURE_COLOR.
 export function colorFor(iso: string | null): string | null {
   if (!iso) return null;
-  const due = new Date(iso).getTime();
-  if (isNaN(due)) return null;
-  const now = Date.now();
-  const hours = (due - now) / 3.6e6;
+  const due = new Date(iso);
+  if (isNaN(due.getTime())) return null;
+  const now = new Date();
+  const dueMs = due.getTime();
+  const nowMs = now.getTime();
+  const isSameDay =
+    due.getFullYear() === now.getFullYear() &&
+    due.getMonth() === now.getMonth() &&
+    due.getDate() === now.getDate();
+  if (!isSameDay && dueMs < nowMs) {
+    return getSettings().pastDueColor;
+  }
+  const hours = (dueMs - nowMs) / 3.6e6;
   const s = getSettings();
-  // Sort rules ascending by withinHours. The first rule whose window still
-  // contains the item wins — that gives the most specific color regardless of
-  // direction. For future items that's the smallest positive window. For past
-  // items the smallest window whose `withinHours` boundary we've already
-  // crossed (in reverse) wins — the boundary `withinHours=0` matches the
-  // instant "now" / any item past now.
   const sorted = [...s.colorRules].sort((a, b) => a.withinHours - b.withinHours);
   for (const r of sorted) {
-    if (hours < 0) {
-      // Past: rule paints if |hours| <= r.withinHours OR r.withinHours === 0
-      // (the boundary rule that represents "now / any time past").
-      const abs = Math.abs(hours);
-      if (r.withinHours === 0 || abs <= r.withinHours) return r.color;
-    } else {
-      if (hours <= r.withinHours) return r.color;
-    }
+    if (hours <= r.withinHours) return r.color;
   }
   return FAR_FUTURE_COLOR;
 }
@@ -173,7 +186,6 @@ export function notificationsAllowed(): boolean {
 
 // Default starter set for the Colors tab. Seeded on first open only.
 export const DEFAULT_COLOR_RULES: ColorRule[] = [
-  { id: "r-overdue",  label: "Overdue",   color: "#b4452f", withinHours: 0 },
   { id: "r-today",    label: "Today",     color: "#d28c2a", withinHours: 24 },
   { id: "r-thisweek", label: "This week", color: "#3f7d6e", withinHours: 168 }
 ];

@@ -1,0 +1,1 @@
+alter table profiles add column if not exists past_due_color text;

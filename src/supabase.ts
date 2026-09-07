@@ -23,6 +23,7 @@ export interface Profile {
   auto_delete_days: number;
   due_include_overdue: boolean;
   due_days_ahead: number;
+  past_due_color: string | null;
   provider: string;
   updated_at: string;
 }
