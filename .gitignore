@@ -1,7 +1,6 @@
-
-
 node_modules
 .env
+.env.*
 dist
 supabase/.temp
 opencode.json
@@ -14,3 +13,17 @@ src/**/*.js
 
 # agent auth-bypass helper scripts (created by subsequent tasks in this plan)
 scripts/agent-*.mjs
+
+# development/debug files
+.scratch/
+.superpowers/
+.playwright-mcp/
+docs/superpowers/
+scripts/dump*.mjs
+scripts/probe.mjs
+scripts/shoot*.mjs
+scripts/update-auth-config.mjs
+*.log
+stdout.txt
+stderr.txt
+*.png

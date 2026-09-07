@@ -24,14 +24,14 @@
     <div class="app">
       <header>
         <h1>Marginalia</h1>
-        <div class="user-menu" id="userMenu" tabindex="0">
+        <button class="user-menu" id="userMenu" aria-haspopup="true" aria-expanded="false">
           <span class="dot"></span><span id="userEmail">—</span>
-          <div class="user-menu-pop" hidden>
-            <button type="button" id="userSettings">Settings</button>
-            <button type="button" id="userSignOut">Sign out</button>
-          </div>
+        </button>
+        <div class="user-menu-pop" role="menu" hidden>
+          <button type="button" role="menuitem" id="userSettings">Settings</button>
+          <button type="button" role="menuitem" id="userSignOut">Sign out</button>
         </div>
-        <button id="settingsBtn" class="icon gear-btn" title="Settings" aria-label="Settings">⚙</button>
+        <button id="settingsBtn" class="icon gear-btn" aria-label="Settings">⚙<span class="sr-only">Settings</span></button>
       </header>
 
       <div class="tabs" role="tablist">
@@ -43,7 +43,8 @@
       <main>
         <div id="view-schedule">
           <form class="manual-event" id="addEvent">
-            <input id="evTitle" placeholder="Add to schedule — e.g. Dentist" aria-label="Event title" />
+            <label for="evTitle" class="sr-only">Event title</label>
+            <input id="evTitle" placeholder="Add to schedule — e.g. Dentist" />
             <button type="button" class="picker-trigger" id="evDate">Pick a date</button>
             <button type="button" class="picker-trigger" id="evTimeTrigger">Time</button>
             <label class="allday"><input type="checkbox" id="evAllDay" /> All day</label>
@@ -65,13 +66,16 @@
             <div class="preview" id="preview"><span id="previewText"></span><span class="x" id="previewX">✕</span></div>
             <div class="bar">
               <button class="mic" id="mic" title="Speak" aria-label="Speak">🎙</button>
-              <input id="phrase" placeholder="Speak or type — “dentist Tuesday 3pm”, “call mom after lunch”" aria-label="New item" />
+              <label for="phrase" class="sr-only">New item</label>
+              <input id="phrase" placeholder="Speak or type — &quot;dentist Tuesday 3pm&quot;, &quot;call mom after lunch&quot;" />
               <button class="btn primary" id="quickAdd">Add</button>
             </div>
           </div>
+          </div>
 
           <div id="dictate" hidden>
-            <textarea id="para" rows="4" placeholder="Ramble away — “dentist Tuesday 3pm, call mom after lunch, pick up groceries tomorrow”"></textarea>
+            <label for="para" class="sr-only">Dictate multiple items</label>
+            <textarea id="para" rows="4" placeholder="Ramble away — &quot;dentist Tuesday 3pm, call mom after lunch, pick up groceries tomorrow&quot;"></textarea>
             <div class="dictate-bar">
               <button class="mic" id="paraMic" title="Speak" aria-label="Speak">🎙</button>
               <button class="btn primary" id="process">Process</button>
@@ -87,7 +91,8 @@
   </div>
 
   <div class="back" id="settingsModal">
-    <div class="modal settings">
+    <div class="modal settings" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+      <h2 id="settingsTitle" class="sr-only">Settings</h2>
       <div class="tab-strip" role="tablist">
         <button class="stab" data-tab="general" role="tab" aria-selected="true">General</button>
         <button class="stab" data-tab="colors" role="tab" aria-selected="false">Colors</button>
@@ -95,11 +100,13 @@
       </div>
       <section class="spanel" data-panel="general">
         <p>Pick a provider. <b>NVIDIA</b> is free with no key (uses a shared proxy). Add a <b>Gemini</b> or <b>Groq</b> key for faster parsing.</p>
+        <label for="provider" class="sr-only">Provider</label>
         <select id="provider">
           <option value="gemini">Gemini</option>
           <option value="groq">Groq</option>
           <option value="nvidia">NVIDIA (default, via proxy)</option>
         </select>
+        <label for="apiKey" class="sr-only">API key</label>
         <input id="apiKey" placeholder="Paste your API key" />
         <div class="row key-row">
           <button class="btn" id="keyTest" type="button">Test key</button>

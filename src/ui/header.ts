@@ -34,12 +34,14 @@ export async function mountHeader(): Promise<void> {
     e.stopPropagation();
     pop.hidden = !pop.hidden;
     userMenu.classList.toggle("is-open", !pop.hidden);
+    userMenu.setAttribute("aria-expanded", String(!pop.hidden));
   });
   // Close when clicking anywhere outside, including clicks on popover items.
   document.addEventListener("click", (e) => {
     if (!pop.hidden && !userMenu.contains(e.target as Node)) {
       pop.hidden = true;
       userMenu.classList.remove("is-open");
+      userMenu.setAttribute("aria-expanded", "false");
     }
   });
   // Keyboard: close on Escape (the popover is already reachable via Tab).
@@ -48,6 +50,7 @@ export async function mountHeader(): Promise<void> {
     if (!pop.hidden) {
       pop.hidden = true;
       userMenu.classList.remove("is-open");
+      userMenu.setAttribute("aria-expanded", "false");
       userMenu.focus();
       return;
     }

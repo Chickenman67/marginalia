@@ -607,8 +607,11 @@ main { flex: 1; padding: 18px 22px 150px; }
 .auth-claim input { width: 100%; padding: 8px; border: 1px solid #d4cebf; border-radius: 6px; font: inherit; box-sizing: border-box; margin-bottom: 6px; }
 .auth-claim-status { font-size: 12px; min-height: 16px; }
 
+/* --- Screen reader only --- */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border-width: 0; }
+
 /* --- User menu --- */
-.user-menu { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: #f0ece2; border-radius: 999px; font-size: 13px; cursor: pointer; position: relative; outline: none; margin-left: auto; max-width: 60%; }
+.user-menu { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: #f0ece2; border-radius: 999px; font-size: 13px; cursor: pointer; position: relative; outline: none; margin-left: auto; max-width: 60%; border: 1px solid transparent; }
 .user-menu .dot { width: 6px; height: 6px; background: #3f7d6e; border-radius: 50%; display: inline-block; flex: none; }
 .user-menu #userEmail { max-width: 18ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 520px) {
@@ -616,7 +619,8 @@ main { flex: 1; padding: 18px 22px 150px; }
   .user-menu { padding: 0; width: 30px; height: 30px; justify-content: center; gap: 0; }
   .user-menu .dot { width: 8px; height: 8px; }
 }
-.user-menu[tabindex="0"]:focus .user-menu-pop,
+.user-menu[aria-expanded="true"] .user-menu-pop,
+.user-menu:focus .user-menu-pop,
 .user-menu.is-open .user-menu-pop { display: grid; }
 .user-menu-pop { position: absolute; top: 100%; right: 0; margin-top: 4px; background: #fff; border: 1px solid #d4cebf; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,.08); display: none; min-width: 180px; z-index: 30; }
 .user-menu-pop button { background: none; border: 0; padding: 8px 12px; text-align: left; font: inherit; cursor: pointer; }
