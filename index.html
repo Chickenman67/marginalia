@@ -112,13 +112,13 @@
         <label class="toggle">Delete after <input type="number" id="autoDeleteDays" min="1" value="30" style="width:64px;margin:0 4px" /> days</label>
         <label class="toggle"><input type="checkbox" id="setDueIncludeOverdue" /> Include overdue items in Due tab</label>
         <label class="toggle">Due tab: show next <input type="number" id="setDueDaysAhead" min="1" max="365" value="7" style="width:64px;margin:0 4px" /> days</label>
-        <div class="row">
-          <button class="btn" id="settingsCancel">Close</button>
-          <button class="btn primary" id="settingsSave">Save</button>
-        </div>
       </section>
       <section class="spanel" data-panel="colors" hidden>
         <div class="rules-head">Color by due date <span class="muted">(most specific matching rule wins)</span></div>
+        <div class="past-due-row">
+          <label for="pastDueColor">Past due color</label>
+          <input type="color" id="pastDueColor" />
+        </div>
         <div id="colorRules"></div>
         <button type="button" class="btn ghost" id="addRule">+ Add color rule</button>
       </section>
@@ -136,6 +136,10 @@
         </div>
         <div class="key-status" id="backupStatus"></div>
       </section>
+      <div class="modal-foot">
+        <button class="btn" id="settingsCancel" type="button">Cancel</button>
+        <button class="btn primary" id="settingsSave" type="button">Save</button>
+      </div>
     </div>
   </div>
 

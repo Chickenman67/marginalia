@@ -285,6 +285,39 @@ main { flex: 1; padding: 18px 22px 150px; }
 .rules-head { font-size: 13px; font-weight: 600; margin: 18px 0 9px; }
 .rules-head .muted { font-weight: 400; color: var(--faint); }
 #colorRules { display: grid; gap: 7px; margin-bottom: 9px; }
+
+/* Past-due color row — match the rule row layout so the picker sits flush
+   with the rules below it. */
+.past-due-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 9px;
+}
+.past-due-row label { font-size: 13.5px; color: var(--ink); }
+.past-due-row input[type="color"] {
+  width: 40px; height: 40px; padding: 0;
+  border: 1px solid var(--line-strong); border-radius: 8px;
+  background: none; cursor: pointer; overflow: hidden; flex: none;
+}
+.past-due-row input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+.past-due-row input[type="color"]::-webkit-color-swatch { border: none; border-radius: 7px; }
+.past-due-row input[type="color"]::-moz-color-swatch { border: none; border-radius: 7px; }
+
+/* Sticky modal footer — Save/Cancel reachable from every panel. */
+.modal-foot {
+  display: flex;
+  gap: 7px;
+  justify-content: flex-end;
+  padding: 14px 0 0;
+  margin-top: 14px;
+  border-top: 1px solid var(--line);
+  position: sticky;
+  bottom: 0;
+  background: var(--panel);
+}
+.modal-foot .btn { padding: 9px 18px; }
+
 .rule { display: flex; align-items: center; gap: 7px; }
 .modal .rule-color { width: 40px; height: 40px; padding: 0; border: 1px solid var(--line-strong); border-radius: 8px; background: none; cursor: pointer; overflow: hidden; flex: none; }
 .modal .rule-color::-webkit-color-swatch-wrapper { padding: 0; }
