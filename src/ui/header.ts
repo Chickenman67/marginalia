@@ -12,7 +12,7 @@ let colorRulesSeeded = false;
 export async function mountHeader(): Promise<void> {
   const emailEl = document.getElementById("userEmail")!;
   const userMenu = document.getElementById("userMenu")!;
-  const pop = userMenu.querySelector<HTMLElement>(".user-menu-pop")!;
+  const pop = userMenu.parentElement!.querySelector<HTMLElement>(".user-menu-pop")!;
   const session = await getSession();
   const email = session?.user.email ?? "—";
   emailEl.textContent = email;
@@ -65,6 +65,8 @@ export async function mountHeader(): Promise<void> {
   document.getElementById("userSettings")!.addEventListener("click", () => {
     openSettings();
     pop.hidden = true;
+    userMenu.classList.remove("is-open");
+    userMenu.setAttribute("aria-expanded", "false");
   });
 
   // settings modal — copy existing tab/handlers from the current header.ts verbatim

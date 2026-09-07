@@ -43,18 +43,23 @@ async function bootApp() {
   setInterval(() => subscribe((items: Item[]) => fireNotifications(items)), 30000);
 }
 
+let appBooted = false;
+
 function showAuth() {
   appRoot.hidden = true;
   authRoot.hidden = false;
+  appBooted = false;
   mountAuthScreen(authRoot);
 }
 function showApp() {
   unmountAuthScreen(authRoot);
   authRoot.hidden = true;
   appRoot.hidden = false;
-  // location.reload would be heavier; instead, kick off a fresh boot.
-  // (authScreen.ts uses a hard reload after a token claim because the
-  // claim changes the active user_id; in-app sign-in/out keeps it.)
+  // onAuthStateChange can fire more than once per session (initial restore +
+  // a token refresh); boot the app exactly once, otherwise every listener
+  // (user menu, settings, realtime) would be bound twice.
+  if (appBooted) return;
+  appBooted = true;
   bootApp();
 }
 

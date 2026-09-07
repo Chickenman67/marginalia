@@ -8,15 +8,22 @@ vi.mock("../../src/auth", () => ({
   signOut: vi.fn()
 }));
 
+vi.mock("../../src/settings", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("../../src/settings")>();
+  return { ...mod, updateSettings: vi.fn() };
+});
+
 describe("user menu header", () => {
   beforeEach(() => {
     document.body.innerHTML = `
       <header>
-        <div class="user-menu" id="userMenu" tabindex="0">
-          <span class="dot"></span><span id="userEmail">—</span>
-          <div class="user-menu-pop" hidden>
-            <button type="button" id="userSettings">Settings</button>
-            <button type="button" id="userSignOut">Sign out</button>
+        <div class="user-menu-wrap">
+          <button class="user-menu" id="userMenu" aria-haspopup="true" aria-expanded="false">
+            <span class="dot"></span><span id="userEmail">—</span>
+          </button>
+          <div class="user-menu-pop" role="menu" hidden>
+            <button type="button" role="menuitem" id="userSettings">Settings</button>
+            <button type="button" role="menuitem" id="userSignOut">Sign out</button>
           </div>
         </div>
         <button id="settingsBtn"></button>
@@ -76,6 +83,33 @@ describe("user menu header", () => {
     await new Promise((r) => setTimeout(r, 0));
     document.getElementById("userSignOut")!.click();
     expect(signOut).toHaveBeenCalled();
+  });
+
+  it("toggles the dropdown when the menu chip is clicked", async () => {
+    (getSession as any).mockResolvedValue({ user: { email: "x@y.z" } });
+    await mountHeader();
+    await new Promise((r) => setTimeout(r, 0));
+    const menu = document.getElementById("userMenu")!;
+    const pop = menu.parentElement!.querySelector<HTMLElement>(".user-menu-pop")!;
+    expect(pop.hidden).toBe(true);
+    menu.click();
+    expect(pop.hidden).toBe(false);
+    expect(menu.getAttribute("aria-expanded")).toBe("true");
+    menu.click();
+    expect(pop.hidden).toBe(true);
+    expect(menu.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("opens settings from the user-menu popover", async () => {
+    (getSession as any).mockResolvedValue({ user: { email: "x@y.z" } });
+    await mountHeader();
+    await new Promise((r) => setTimeout(r, 0));
+    const menu = document.getElementById("userMenu")!;
+    menu.click();
+    const back = document.getElementById("settingsModal")!;
+    document.getElementById("userSettings")!.click();
+    expect(back.classList.contains("show")).toBe(true);
+    expect(menu.getAttribute("aria-expanded")).toBe("false");
   });
 });
 

@@ -24,12 +24,14 @@
     <div class="app">
       <header>
         <h1>Marginalia</h1>
-        <button class="user-menu" id="userMenu" aria-haspopup="true" aria-expanded="false">
-          <span class="dot"></span><span id="userEmail">—</span>
-        </button>
-        <div class="user-menu-pop" role="menu" hidden>
-          <button type="button" role="menuitem" id="userSettings">Settings</button>
-          <button type="button" role="menuitem" id="userSignOut">Sign out</button>
+        <div class="user-menu-wrap">
+          <button class="user-menu" id="userMenu" aria-haspopup="true" aria-expanded="false">
+            <span class="dot"></span><span id="userEmail">—</span>
+          </button>
+          <div class="user-menu-pop" role="menu" hidden>
+            <button type="button" role="menuitem" id="userSettings">Settings</button>
+            <button type="button" role="menuitem" id="userSignOut">Sign out</button>
+          </div>
         </div>
         <button id="settingsBtn" class="icon gear-btn" aria-label="Settings">⚙<span class="sr-only">Settings</span></button>
       </header>
@@ -68,9 +70,8 @@
               <button class="mic" id="mic" title="Speak" aria-label="Speak">🎙</button>
               <label for="phrase" class="sr-only">New item</label>
               <input id="phrase" placeholder="Speak or type — &quot;dentist Tuesday 3pm&quot;, &quot;call mom after lunch&quot;" />
-              <button class="btn primary" id="quickAdd">Add</button>
+<button class="btn primary" id="quickAdd">Add</button>
             </div>
-          </div>
           </div>
 
           <div id="dictate" hidden>
