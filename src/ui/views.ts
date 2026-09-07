@@ -19,10 +19,9 @@ export function starSymbolHTML(): string {
 export function starHTML(rating: number, itemId: string): string {
   const r = Math.max(0, Math.min(5, Math.round(rating * 2) / 2));
 
-  // Preserve the editing-pin across innerHTML swaps. If the user is hovering
-  // a row (data-editing="1"), the render path will replace this element with
-  // a brand-new .stars row; we copy the pin attributes onto the new row so
-  // getPinnedRatings still sees it before bindStarEvents re-applies them.
+  // Preserve the editing-pin across innerHTML swaps. If a prior row carried
+  // data-editing / data-previous-rating (legacy hover-pin mechanism), copy
+  // them onto the new row so any downstream reader still sees them.
   let pinAttrs = "";
   if (typeof document !== "undefined") {
     const prev = document.querySelector<HTMLElement>(`.stars[data-item="${itemId}"][data-editing]`);
@@ -168,17 +167,6 @@ export function priorityComparator(
   return br - ar;
 }
 
-export function getPinnedRatings(host: HTMLElement): Map<string, number> {
-  const out = new Map<string, number>();
-  host.querySelectorAll<HTMLElement>(".stars[data-editing]").forEach((row) => {
-    const id = row.dataset.item;
-    const prev = row.dataset.previousRating;
-    if (id !== undefined && prev !== undefined) {
-      out.set(id, Number(prev));
-    }
-  });
-  return out;
-}
 function dateComparator(a: Item, b: Item): number {
   if (!a.datetime && !b.datetime) return 0;
   if (!a.datetime) return 1;

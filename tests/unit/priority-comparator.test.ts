@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from "vitest";
-import { priorityComparator, getPinnedRatings } from "../../src/ui/views";
+import { priorityComparator } from "../../src/ui/views";
 import type { Item } from "../../src/types";
 
 function item(id: string, rating: number, created = "2026-01-01"): Item {
@@ -47,29 +47,5 @@ describe("priorityComparator", () => {
     const b = item("b", 4);
     const pinned = new Map<string, number>([["a", 4]]);
     expect(priorityComparator(a, b, pinned)).toBe(0);
-  });
-});
-
-describe("getPinnedRatings", () => {
-  it("returns a map populated from .stars[data-editing] rows", () => {
-    document.body.innerHTML = `
-      <div id="host">
-        <span class="stars" data-item="a" data-editing="1" data-previous-rating="2"></span>
-        <span class="stars" data-item="b" data-editing="1" data-previous-rating="4"></span>
-        <span class="stars" data-item="c"></span>
-      </div>
-    `;
-    const host = document.getElementById("host")!;
-    const map = getPinnedRatings(host);
-    expect(map.get("a")).toBe(2);
-    expect(map.get("b")).toBe(4);
-    expect(map.has("c")).toBe(false);
-    expect(map.size).toBe(2);
-  });
-
-  it("returns an empty map when no row is editing", () => {
-    document.body.innerHTML = `<div id="host"><span class="stars" data-item="a"></span></div>`;
-    const host = document.getElementById("host")!;
-    expect(getPinnedRatings(host).size).toBe(0);
   });
 });

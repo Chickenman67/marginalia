@@ -1,7 +1,7 @@
 import { addItem, subscribe, deleteItem, setItems } from "../store";
 import { parsePhrase, polishPhrase, updateItem } from "../supabase";
 import { createSpeech } from "../speech";
-import { cardHTML, bindCardEvents, groupByDay, esc, applyViewV2, getPinnedRatings, starClickValue, type ScheduleState, type TodosState, type DueState } from "./views";
+import { cardHTML, bindCardEvents, groupByDay, esc, applyViewV2, starClickValue, type ScheduleState, type TodosState, type DueState } from "./views";
 import { mountFilterPanel } from "./filterPanel";
 import { openCalendar, openTimePicker } from "./calendar";
 import { getSettings, formatClock, subscribeSettings } from "../settings";
@@ -229,8 +229,8 @@ function localToISO(s: string): string | null {
 }
 
 export function mountViews(): void {
-  editingRows.clear();
-  editingPrevious.clear();
+  activeTab = "schedule";
+  pinnedRatings = new Map();
 
   const vSched = el<HTMLDivElement>("#view-schedule");
   const vTodo = el<HTMLDivElement>("#view-todos");
@@ -246,6 +246,14 @@ export function mountViews(): void {
       vSched.hidden = t.dataset.view !== "schedule";
       vTodo.hidden = t.dataset.view !== "todos";
       vDue.hidden = t.dataset.view !== "due";
+      activeTab = t.dataset.view as "schedule" | "todos" | "due";
+      pinnedRatings = new Map();
+      if (activeTab === "todos") {
+        for (const it of latestItems) {
+          if (it.kind === "todo") pinnedRatings.set(it.id, it.rating);
+        }
+      }
+      renderAll(latestItems);
     };
   });
 
@@ -382,15 +390,19 @@ export function mountViews(): void {
   });
 
   function renderAll(items: Item[]) {
+    if (pinnedRatings.size) {
+      const live = new Set(items.map((i) => i.id));
+      for (const id of [...pinnedRatings.keys()]) if (!live.has(id)) pinnedRatings.delete(id);
+    }
     const events = applyViewV2(
       items.filter((i) => i.kind === "event"),
       scheduleState,
-      getPinnedRatings(vSched)
+      new Map()
     );
     const todos = applyViewV2(
       items.filter((i) => i.kind === "todo"),
       todosState,
-      getPinnedRatings(vTodo)
+      pinnedRatings
     );
     // For the due view, the spec excludes done items. Show anything with a
     // reminder or a future datetime — applyViewV2's "week" branch decides if
@@ -399,7 +411,7 @@ export function mountViews(): void {
     const dueShown = applyViewV2(
       dueNotDone,
       dueState,
-      getPinnedRatings(vDue)
+      new Map()
     );
 
     cSched.textContent = String(events.filter((i) => i.status !== "done").length || "");
@@ -421,14 +433,8 @@ export function mountViews(): void {
   }
 }
 
-// Track which item ids are currently being edited (cursor inside the .stars
-// row) so we can re-apply `data-editing` / `data-previous-rating` to a fresh
-// row after the host's innerHTML is replaced. Without this, the next render
-// cycle reads an empty pinned map and the priority comparator uses the
-// freshly updated rating — so the row the user is editing reorders under
-// their cursor from the second click onward.
-const editingRows = new Set<string>();
-const editingPrevious = new Map<string, number>();
+let activeTab: "schedule" | "todos" | "due" = "schedule";
+let pinnedRatings: Map<string, number> = new Map();
 
 // --- Manual Schedule entry with a calendar popover + time picker ---
 const form = el<HTMLFormElement>("#addEvent");
@@ -475,23 +481,8 @@ async function setRating(id: string, rating: number, items: Item[]) {
   const it = items.find((x) => x.id === id);
   if (!it) return;
   const previous = it.rating;
-  const row = document.querySelector<HTMLElement>(`.stars[data-item="${id}"]`);
-  if (row) row.dataset.previousRating = String(previous);
-  // Mirror the previous rating into module-level state so it survives the
-  // innerHTML wipe that setItems -> renderAll triggers.
-  editingPrevious.set(id, previous);
   const local = items.map((x) => (x.id === id ? { ...x, rating } : x));
   setItems(local);
-  // Pin release: the click has committed, let the next render re-sort the row
-  // to its new position. mouseenter will re-pin if the cursor is still inside
-  // the row, ready for the next click.
-  editingRows.delete(id);
-  editingPrevious.delete(id);
-  const rowAfter = document.querySelector<HTMLElement>(`.stars[data-item="${id}"]`);
-  if (rowAfter) {
-    if (rowAfter.dataset.editing !== undefined) delete rowAfter.dataset.editing;
-    if (rowAfter.dataset.previousRating !== undefined) delete rowAfter.dataset.previousRating;
-  }
   try {
     await updateItem(id, { rating });
   } catch (err) {
@@ -509,51 +500,11 @@ export function starHoverValue(pos: number, offsetX: number, starWidth: number):
 }
 
 export function bindStarEvents(host: HTMLElement, items: Item[]) {
-  // Prune module-level editing state for items that no longer exist.
-  // When an item is deleted while its row is being hovered, mouseleave never
-  // fires on the wiped DOM, so its id would otherwise stay in editingRows /
-  // editingPrevious forever.
-  const liveIds = new Set(items.map(i => i.id));
-  for (const id of [...editingRows]) if (!liveIds.has(id)) editingRows.delete(id);
-  for (const id of [...editingPrevious.keys()]) if (!liveIds.has(id)) editingPrevious.delete(id);
-
-  // Re-apply the editing-pin state to any rows that were editing before the
-  // innerHTML wipe. The post-render .stars element is brand new, so it has
-  // no data-editing / data-previous-rating attributes yet — restore them from
-  // module-level state so getPinnedRatings can still see them.
-  for (const id of editingRows) {
-    const row = host.querySelector<HTMLElement>(`.stars[data-item="${id}"]`);
-    if (!row) continue;
-    row.dataset.editing = "1";
-    if (row.dataset.previousRating === undefined && editingPrevious.has(id)) {
-      row.dataset.previousRating = String(editingPrevious.get(id));
-    }
-  }
-
   host.querySelectorAll<HTMLElement>(".stars").forEach((row) => {
-    // Stash the committed-rating tip text on the row so mouseleave can
-    // restore it. (This avoids re-deriving it from the committed stars on
-    // every leave.)
-    const tipEl = row.querySelector<HTMLElement>(".tip");
-    if (tipEl) row.dataset.committedTip = tipEl.textContent ?? "";
-
     row.addEventListener("mouseenter", () => {
       if (host.querySelector(".card.selected")) return; // selection mode
-      row.dataset.editing = "1";
-      editingRows.add(row.dataset.item!);
     });
     row.addEventListener("mouseleave", () => {
-      if (row.dataset.editing !== undefined) delete row.dataset.editing;
-      const id = row.dataset.item;
-      if (id !== undefined) {
-        editingRows.delete(id);
-        editingPrevious.delete(id);
-      }
-      // Restore the committed-rating tip text.
-      const tip = row.querySelector<HTMLElement>(".tip");
-      if (tip && row.dataset.committedTip !== undefined) {
-        tip.textContent = row.dataset.committedTip;
-      }
     });
     row.querySelectorAll<HTMLElement>(".star").forEach((starEl) => {
       starEl.addEventListener("mousemove", (e) => {
