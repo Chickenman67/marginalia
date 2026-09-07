@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { DEFAULT_COLOR_RULES, nextColorForNewRule, FAR_FUTURE_COLOR, colorFor, getSettings, updateSettings } from "../../src/settings";
+import { DEFAULT_COLOR_RULES, nextColorForNewRule, FAR_FUTURE_COLOR, colorFor, getSettings, updateSettings, defaults } from "../../src/settings";
 import { getSession } from "../../src/auth";
 
 vi.mock("../../src/auth", () => ({
@@ -9,29 +9,37 @@ vi.mock("../../src/auth", () => ({
 beforeEach(async () => {
   (getSession as any).mockResolvedValue(null);
   // Seed the module-level cache with the default rules so colorFor() uses them.
-  await updateSettings({ colorRules: [...DEFAULT_COLOR_RULES] });
+  await updateSettings({
+    colorRules: [...DEFAULT_COLOR_RULES],
+    pastDueColor: defaults().pastDueColor
+  });
   // Sanity: getSettings() now returns the seeded rules.
-  expect(getSettings().colorRules).toHaveLength(3);
+  expect(getSettings().colorRules).toHaveLength(2);
 });
 
 describe("DEFAULT_COLOR_RULES", () => {
-  it("has exactly three entries", () => {
-    expect(DEFAULT_COLOR_RULES).toHaveLength(3);
+  it("has exactly two entries (Overdue is gone; past-due lives in pastDueColor)", () => {
+    expect(DEFAULT_COLOR_RULES).toHaveLength(2);
   });
 
-  it("contains Overdue, Today, and This week", () => {
+  it("contains Today and This week", () => {
     const labels = DEFAULT_COLOR_RULES.map((r) => r.label);
-    expect(labels).toEqual(["Overdue", "Today", "This week"]);
+    expect(labels).toEqual(["Today", "This week"]);
   });
 
-  it("uses red, amber, and green", () => {
+  it("uses amber and green", () => {
     const colors = DEFAULT_COLOR_RULES.map((r) => r.color.toLowerCase());
-    expect(colors).toEqual(["#b4452f", "#d28c2a", "#3f7d6e"]);
+    expect(colors).toEqual(["#d28c2a", "#3f7d6e"]);
   });
 
-  it("uses 0, 24, and 168 hours", () => {
+  it("uses 24 and 168 hours", () => {
     const hours = DEFAULT_COLOR_RULES.map((r) => r.withinHours);
-    expect(hours).toEqual([0, 24, 168]);
+    expect(hours).toEqual([24, 168]);
+  });
+
+  it("has no Overdue rule with withinHours=0", () => {
+    expect(DEFAULT_COLOR_RULES.some((r) => r.id === "r-overdue")).toBe(false);
+    expect(DEFAULT_COLOR_RULES.some((r) => r.withinHours === 0)).toBe(false);
   });
 });
 
@@ -70,6 +78,17 @@ describe("colorFor with default rules", () => {
     return new Date(Date.now() + offsetHours * 3.6e6).toISOString();
   }
 
+  // Past-date ISO. Anchors on yesterday's calendar date at the same wall-clock
+  // offset, so the item is strictly before today regardless of the current
+  // hour. colorFor routes yesterday-dated items to pastDueColor even when the
+  // underlying clock offset is small.
+  function isoYesterdayAtNowPlus(offsetHours: number): string {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    d.setHours(d.getHours(), d.getMinutes(), d.getSeconds(), d.getMilliseconds());
+    return new Date(d.getTime() + offsetHours * 3.6e6).toISOString();
+  }
+
   it("paints a 1h-future item with Today (amber)", () => {
     expect(colorFor(isoFromNow(1))?.toLowerCase()).toBe("#d28c2a");
   });
@@ -78,11 +97,49 @@ describe("colorFor with default rules", () => {
     expect(colorFor(isoFromNow(25))?.toLowerCase()).toBe("#3f7d6e");
   });
 
-  it("paints a 1h-past item with Overdue (red) — withinHours=0 boundary rule", () => {
-    expect(colorFor(isoFromNow(-1))?.toLowerCase()).toBe("#b4452f");
+  it("paints a 1h-past-dated item with pastDueColor (red)", () => {
+    expect(colorFor(isoYesterdayAtNowPlus(-1))?.toLowerCase()).toBe("#b4452f");
   });
 
-  it("paints a 12h-past item with Overdue (red) — still within the boundary rule", () => {
-    expect(colorFor(isoFromNow(-12))?.toLowerCase()).toBe("#b4452f");
+  it("paints a 12h-past-dated item with pastDueColor (red) regardless of how far past", () => {
+    expect(colorFor(isoYesterdayAtNowPlus(-12))?.toLowerCase()).toBe("#b4452f");
+  });
+
+  it("uses pastDueColor for past items even when colorRules is empty", () => {
+    updateSettings({ colorRules: [], pastDueColor: "#abcdef" });
+    expect(colorFor(isoYesterdayAtNowPlus(-1))?.toLowerCase()).toBe("#abcdef");
+  });
+
+  it("ignores colorRules for past items — only pastDueColor applies", () => {
+    updateSettings({
+      colorRules: [{ id: "r-x", label: "Trap", color: "#00ff00", withinHours: 9999 }],
+      pastDueColor: "#123456"
+    });
+    expect(colorFor(isoYesterdayAtNowPlus(-50))?.toLowerCase()).toBe("#123456");
+  });
+});
+
+describe("colorFor (date-aware)", () => {
+  it("yesterday's items get pastDueColor", () => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    yesterday.setHours(19, 0, 0, 0);
+    expect(colorFor(yesterday.toISOString())?.toLowerCase()).toBe("#b4452f");
+  });
+
+  it("earlier-today items get Today color even though hours < 0", () => {
+    const earlier = new Date();
+    earlier.setHours(4, 14, 0, 0);
+    expect(colorFor(earlier.toISOString())?.toLowerCase()).toBe("#d28c2a");
+  });
+
+  it("future-today items get Today color", () => {
+    const later = new Date();
+    later.setHours(23, 0, 0, 0);
+    expect(colorFor(later.toISOString())?.toLowerCase()).toBe("#d28c2a");
+  });
+
+  it("null iso returns null", () => {
+    expect(colorFor(null)).toBe(null);
   });
 });
