@@ -102,11 +102,15 @@ as a preview placeholder. Everything else is a todo, as today.
 
 ### Override rule
 
-The resolver runs **after** the LLM completes and only changes the result when
-it matches **and** the LLM output has no explicit `datetime`. If the LLM (or a
-direct provider) already produced a `datetime`, the LLM wins — an explicitly
-stated date/placement is never overridden. `implied: true` is used by the UI
-to decide whether to show the confirm card.
+The resolver runs **after** the LLM completes and, when it matches (the phrase
+had a bare weekday or time-of-day word and **no** explicit date/time cue),
+always applies its values. Because `resolveSchedule` returns `null` for any
+explicit cue (clock time, today/tomorrow, next/last/this + weekday, month +
+day, today+tomorrow variants), the LLM's `datetime` is effectively trusted
+exactly when the user stated an explicit date or placement. Fabricated
+datetimes for ambiguous phrases (e.g. an LLM dating "wednesday" to today) are
+overridden. `implied: true` is used by the UI to decide whether to show the
+confirm card.
 
 ## Confirm card (implied times only)
 
