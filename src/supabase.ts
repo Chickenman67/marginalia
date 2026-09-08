@@ -1,5 +1,6 @@
 import { config, STORAGE_KEYS } from "./config";
 import type { Item, ParsedItem, PolishResult, DraftItem } from "./types";
+import { applyResolve } from "./dates";
 import { getSession } from "./auth";
 
 let client: import("@supabase/supabase-js").SupabaseClient | null = null;
@@ -104,14 +105,14 @@ export async function parsePhrase(phrase: string): Promise<ParsedItem> {
       body: JSON.stringify({ phrase, tzOffsetMinutes: tzOffsetMinutes() })
     });
     if (!r.ok) throw new Error(`parse failed: ${r.status}`);
-    return (await r.json()) as ParsedItem;
+    return applyResolve((await r.json()) as ParsedItem, phrase);
   }
-  return parseDirect(phrase, provider, userKey);
+  return applyResolve(await parseDirect(phrase, provider, userKey), phrase);
 }
 
 async function parseDirect(phrase: string, provider: string, key: string): Promise<ParsedItem> {
   // Gemini: key-in-URL, responseSchema. Groq: OpenAI-compat, json_object.
-  const sys = "Convert a scheduling phrase into JSON {title, datetime (ISO8601 or null), type ('todo'|'event'), reminder (ISO8601 or null)}. datetime present => event.";
+  const sys = "Convert a scheduling phrase into JSON {title, datetime (ISO8601 or null), type ('todo'|'event'), reminder (ISO8601 or null)}. datetime present => event. A BARE weekday name with no clock time ('wednesday') is an ALL-DAY event on the NEAREST upcoming occurrence of that weekday (today counts; this week if still ahead, otherwise next week). Time-of-day words (morning 9am, afternoon 2pm, evening 6pm, tonigh 8pm) are timed events at that hour, never todos. type 'todo' ONLY if no date or time-of-day is mentioned.";
   if (provider === "gemini") {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${key}`;
     const res = await fetch(url, {
@@ -162,6 +163,7 @@ function normalize(j: any): ParsedItem {
     title: String(j.title ?? "Untitled").slice(0, 120),
     kind,
     datetime,
+    allDay: !!(j.allDay),
     reminder: j.reminder ? asLocalISO(j.reminder) : null
   };
 }
@@ -173,6 +175,7 @@ function normalizeDraft(j: any): DraftItem {
     title: String(j.title ?? "Untitled").slice(0, 120),
     kind,
     datetime,
+    allDay: !!(j.allDay),
     reminder: j.reminder ? asLocalISO(j.reminder) : null
   };
 }
@@ -192,13 +195,15 @@ export async function polishPhrase(paragraph: string): Promise<PolishResult> {
       body: JSON.stringify({ paragraph, tzOffsetMinutes: tzOffsetMinutes() })
     });
     if (!r.ok) throw new Error(`polish failed: ${r.status}`);
-    return (await r.json()) as PolishResult;
+    const proxied = (await r.json()) as PolishResult;
+    return { items: proxied.items.map((it) => applyResolve(it, it.title)) };
   }
-  return polishDirect(paragraph, provider, userKey);
+  const direct = await polishDirect(paragraph, provider, userKey);
+  return { items: direct.items.map((it) => applyResolve(it, it.title)) };
 }
 
 async function polishDirect(paragraph: string, provider: string, key: string): Promise<PolishResult> {
-  const sys = "Organize a rambling paragraph into a JSON object {items:[{title, kind('event'|'todo'), datetime(ISO8601 or null), reminder(ISO8601 or null)}]}. If a line has a time it is an event, otherwise a todo. Resolve relative times to the user's LOCAL time and current year. RELATIVE-NOW cues like 'in the next hour' / 'in 30 minutes' mean FROM NOW (today), never tomorrow — anchor on the current time. Weekday names resolve to the NEXT occurrence from today. Cap at 100 items.";
+  const sys = "Organize a rambling paragraph into a JSON object {items:[{title, kind('event'|'todo'), datetime(ISO8601 or null), reminder(ISO8601 or null)}]}. If a line has a time it is an event, otherwise a todo. Resolve relative times to the user's LOCAL time and current year. RELATIVE-NOW cues like 'in the next hour' / 'in 30 minutes' mean FROM NOW (today), never tomorrow — anchor on the current time. A bare weekday with no time ('wednesday') is an ALL-DAY event on the nearest upcoming occurrence of that weekday (this week, else next week). Time-of-day words make timed events, never todos. Cap at 100 items.";
   let parsed: any;
   if (provider === "gemini") {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${key}`;
@@ -269,11 +274,16 @@ export async function updateProfile(userId: string, patch: Partial<Profile>): Pr
 // --- Test-provider-key (unchanged signature; drop token header) ---
 export async function testProviderKey(provider: string, key: string): Promise<{ ok: boolean; message: string }> {
   if (provider === "nvidia") {
+    if (!config.parseFunction) {
+      return { ok: false, message: "NVIDIA proxy not configured (no Supabase link)." };
+    }
     try {
+      const session = await getSession();
+      if (!session) return { ok: false, message: "Sign in first, then test the NVIDIA proxy." };
       const res = await fetch(config.parseFunction, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.supabaseAnon}` },
-        body: JSON.stringify({ phrase: "test" })
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ phrase: "test", tzOffsetMinutes: tzOffsetMinutes() })
       });
       return res.ok
         ? { ok: true, message: "NVIDIA proxy works (no key needed)." }
