@@ -120,15 +120,21 @@ export async function mountHeader(): Promise<void> {
 
   const openSettings = async () => {
     const s = getSettings();
+    let storedKey = localStorage.getItem(STORAGE_KEYS.llmKey) || "";
+    let storedProvider = localStorage.getItem(STORAGE_KEYS.provider) || "nvidia";
     const session = await getSession();
     if (session) {
-      const profile = await fetchProfile(session.user.id);
-      apiKey.value = profile.llm_key || "";
-      provider.value = profile.llm_provider || "nvidia";
-    } else {
-      apiKey.value = localStorage.getItem(STORAGE_KEYS.llmKey) || "";
-      provider.value = localStorage.getItem(STORAGE_KEYS.provider) || "nvidia";
+      try {
+        const profile = await fetchProfile(session.user.id);
+        storedKey = profile.llm_key || storedKey;
+        storedProvider = profile.llm_provider || storedProvider;
+      } catch {
+        // Profile fetch unavailable (e.g. demo build without Supabase env);
+        // keep the local-storage values so Settings still opens.
+      }
     }
+    apiKey.value = storedKey;
+    provider.value = storedProvider;
     setAuto.checked = s.autoRemindEvents;
     setMilitary.checked = s.militaryTime;
     setNotify.checked = s.browserNotifications && typeof Notification !== "undefined" && Notification.permission === "granted";

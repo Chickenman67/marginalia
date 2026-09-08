@@ -108,6 +108,8 @@ describe("user menu header", () => {
     menu.click();
     const back = document.getElementById("settingsModal")!;
     document.getElementById("userSettings")!.click();
+    // openSettings is async (session/profile lookup); let it complete.
+    await new Promise((r) => setTimeout(r, 0));
     expect(back.classList.contains("show")).toBe(true);
     expect(menu.getAttribute("aria-expanded")).toBe("false");
   });
@@ -120,6 +122,7 @@ describe("settings modal dismiss", () => {
     const back = document.getElementById("settingsModal")!;
     const btn = document.getElementById("settingsBtn")!;
     btn.click();
+    await new Promise((r) => setTimeout(r, 0));
     expect(back.classList.contains("show")).toBe(true);
     back.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(back.classList.contains("show")).toBe(false);
@@ -132,6 +135,7 @@ describe("settings modal dismiss", () => {
     const panel = back.querySelector(".spanel")!;
     const btn = document.getElementById("settingsBtn")!;
     btn.click();
+    await new Promise((r) => setTimeout(r, 0));
     expect(back.classList.contains("show")).toBe(true);
     panel.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(back.classList.contains("show")).toBe(true);
@@ -143,6 +147,7 @@ describe("settings modal dismiss", () => {
     const back = document.getElementById("settingsModal")!;
     const btn = document.getElementById("settingsBtn")!;
     btn.click();
+    await new Promise((r) => setTimeout(r, 0));
     expect(back.classList.contains("show")).toBe(true);
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     expect(back.classList.contains("show")).toBe(false);

@@ -599,30 +599,33 @@ export function bindStarEvents(host: HTMLElement, items: Item[]) {
     let isDragging = false;
     let lastValue = 0;
     
-    const updateHover = (clientX: number, clientY: number): number => {
+    const updateHover = (clientX: number, clientY: number, targetEl?: Element | null): number => {
       if (host.querySelector(".card.selected")) return 0;
       const stars = Array.from(row.querySelectorAll<HTMLElement>(".star"));
-      for (const starEl of stars) {
-        const rect = starEl.getBoundingClientRect();
-        if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) {
-          const pos = Number(starEl.dataset.pos);
-          const offsetX = clientX - rect.left;
-          const value = starHoverValue(pos, offsetX, starEl.clientWidth);
-          row.dataset.hover = String(value);
-          const tip = row.querySelector<HTMLElement>(".tip");
-          if (tip) {
-            const id = row.dataset.item;
-            const it = id !== undefined ? items.find((x) => x.id === id) : undefined;
-            tip.textContent = (it && value === it.rating) ? "Clear" : String(value);
-          }
-          return value;
-        }
+      const starEl = (targetEl instanceof Element ? targetEl.closest<HTMLElement>(".star") : undefined) ??
+        stars.find((el) => {
+          const r = el.getBoundingClientRect();
+          return clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom;
+        });
+      if (!starEl) return 0;
+      const pos = Number(starEl.dataset.pos);
+      // Prefer the event target's own geometry; fall back to a NaN offset
+      // (whole-zone) when layout geometry is unavailable (e.g. jsdom tests).
+      const rect = starEl.getBoundingClientRect();
+      const offsetX = rect.width > 0 ? clientX - rect.left : NaN;
+      const value = starHoverValue(pos, offsetX, starEl.clientWidth);
+      row.dataset.hover = String(value);
+      const tip = row.querySelector<HTMLElement>(".tip");
+      if (tip) {
+        const id = row.dataset.item;
+        const it = id !== undefined ? items.find((x) => x.id === id) : undefined;
+        tip.textContent = (it && value === it.rating) ? "Clear" : String(value);
       }
-      return 0;
+      return value;
     };
     
-    const handleMove = (clientX: number, clientY: number) => {
-      const value = updateHover(clientX, clientY);
+    const handleMove = (clientX: number, clientY: number, targetEl?: Element | null) => {
+      const value = updateHover(clientX, clientY, targetEl);
       if (isDragging && value > 0 && value !== lastValue) {
         lastValue = value;
         const id = row.dataset.item!;
@@ -675,7 +678,7 @@ export function bindStarEvents(host: HTMLElement, items: Item[]) {
     row.querySelectorAll<HTMLElement>(".star").forEach((starEl) => {
       starEl.addEventListener("mousemove", (e) => {
         const me = e as MouseEvent;
-        handleMove(me.clientX, me.clientY);
+        handleMove(me.clientX, me.clientY, e.target as Element | null);
       });
       starEl.addEventListener("mouseleave", () => {
         if (!isDragging && row.dataset.hover !== undefined) delete row.dataset.hover;
