@@ -66,7 +66,12 @@ Deno.serve(async (req) => {
   const userId = userData.user.id;
 
   // Durable, per-user rate limit (NVIDIA is free but shared; protect the quota).
-  const { data: allowed, error: rlErr } = await supabase.rpc("check_rate_limit", {
+  // public.check_rate_limit is EXECUTE-granted to service_role only, so it must
+  // run via an admin client — the user-scoped client is denied and would make
+  // every request look rate-limited (429).
+  const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY || SUPABASE_ANON_KEY, { auth: { persistSession: false } });
+  const { data: allowed, error: rlErr } = await admin.rpc("check_rate_limit", {
     p_space: userId,
     p_max: 30,
     p_window_sec: 60
