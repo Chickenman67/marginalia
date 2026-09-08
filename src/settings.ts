@@ -19,6 +19,8 @@ export interface Settings {
   dueIncludeOverdue: boolean;
   dueDaysAhead: number;
   pastDueColor: string;
+  llmKey?: string;
+  llmProvider?: string;
 }
 
 let cache: Settings | null = null;
@@ -81,7 +83,11 @@ export async function updateSettings(patch: Partial<Settings>): Promise<void> {
   cache = { ...getSettings(), ...patch };
   notifyListeners();
   const session = await getSession();
-  if (!session) return;
+  if (!session) {
+    if (patch.llmKey !== undefined) localStorage.setItem(STORAGE_KEYS.llmKey, patch.llmKey);
+    if (patch.llmProvider !== undefined) localStorage.setItem(STORAGE_KEYS.provider, patch.llmProvider);
+    return;
+  }
   const map: Record<string, any> = {
     autoRemindEvents: "auto_remind_events",
     militaryTime: "military_time",
@@ -90,7 +96,9 @@ export async function updateSettings(patch: Partial<Settings>): Promise<void> {
     colorRules: "color_rules",
     dueIncludeOverdue: "due_include_overdue",
     dueDaysAhead: "due_days_ahead",
-    pastDueColor: "past_due_color"
+    pastDueColor: "past_due_color",
+    llmKey: "llm_key",
+    llmProvider: "llm_provider"
   };
   const profilePatch: Record<string, any> = {};
   for (const [k, v] of Object.entries(patch)) {

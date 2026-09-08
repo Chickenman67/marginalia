@@ -1,6 +1,6 @@
 import { STORAGE_KEYS } from "../config";
 import { getSettings, updateSettings, enableNotifications, type ColorRule, DEFAULT_COLOR_RULES, nextColorForNewRule, cleanColorRules } from "../settings";
-import { testProviderKey } from "../supabase";
+import { testProviderKey, fetchProfile } from "../supabase";
 import { getSession, signOut } from "../auth";
 import { esc } from "./views";
 import { toCSV, toText, parseFile, applyImport, download } from "../backup";
@@ -118,10 +118,17 @@ export async function mountHeader(): Promise<void> {
       withinHours: Math.max(1, Number((row.querySelector(".rule-hours") as HTMLInputElement).value) || 24)
     }));
 
-  const openSettings = () => {
+  const openSettings = async () => {
     const s = getSettings();
-    apiKey.value = localStorage.getItem(STORAGE_KEYS.llmKey) || "";
-    provider.value = localStorage.getItem(STORAGE_KEYS.provider) || "nvidia";
+    const session = await getSession();
+    if (session) {
+      const profile = await fetchProfile(session.user.id);
+      apiKey.value = profile.llm_key || "";
+      provider.value = profile.llm_provider || "nvidia";
+    } else {
+      apiKey.value = localStorage.getItem(STORAGE_KEYS.llmKey) || "";
+      provider.value = localStorage.getItem(STORAGE_KEYS.provider) || "nvidia";
+    }
     setAuto.checked = s.autoRemindEvents;
     setMilitary.checked = s.militaryTime;
     setNotify.checked = s.browserNotifications && typeof Notification !== "undefined" && Notification.permission === "granted";
@@ -149,10 +156,9 @@ export async function mountHeader(): Promise<void> {
     if (e.target === back) back.classList.remove("show");
   });
   document.getElementById("settingsSave")!.addEventListener("click", () => {
-    localStorage.setItem(STORAGE_KEYS.llmKey, apiKey.value.trim());
-    localStorage.setItem(STORAGE_KEYS.provider, provider.value);
-
     const snapshot = {
+      llmKey: apiKey.value.trim(),
+      llmProvider: provider.value,
       autoRemindEvents: setAuto.checked,
       militaryTime: setMilitary.checked,
       colorRules: cleanColorRules(readRules()),

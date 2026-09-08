@@ -25,7 +25,8 @@ export interface Profile {
   due_include_overdue: boolean;
   due_days_ahead: number;
   past_due_color: string | null;
-  provider: string;
+  llm_key: string | null;
+  llm_provider: string;
   updated_at: string;
 }
 
@@ -90,8 +91,14 @@ function tzOffsetMinutes(): number {
 }
 
 export async function parsePhrase(phrase: string): Promise<ParsedItem> {
-  const userKey = localStorage.getItem(STORAGE_KEYS.llmKey);
-  const provider = localStorage.getItem(STORAGE_KEYS.provider) || "nvidia";
+  const session = await getSession();
+  let userKey = localStorage.getItem(STORAGE_KEYS.llmKey);
+  let provider = localStorage.getItem(STORAGE_KEYS.provider) || "nvidia";
+  if (session) {
+    const profile = await fetchProfile(session.user.id);
+    userKey = profile.llm_key || "";
+    provider = profile.llm_provider || "nvidia";
+  }
 
   // "nvidia" = use the free shared proxy (no key). Any other provider uses the saved key.
   if (provider === "nvidia" || !userKey) {
@@ -181,8 +188,14 @@ function normalizeDraft(j: any): DraftItem {
 }
 
 export async function polishPhrase(paragraph: string): Promise<PolishResult> {
-  const userKey = localStorage.getItem(STORAGE_KEYS.llmKey);
-  const provider = localStorage.getItem(STORAGE_KEYS.provider) || "nvidia";
+  const session = await getSession();
+  let userKey = localStorage.getItem(STORAGE_KEYS.llmKey);
+  let provider = localStorage.getItem(STORAGE_KEYS.provider) || "nvidia";
+  if (session) {
+    const profile = await fetchProfile(session.user.id);
+    userKey = profile.llm_key || "";
+    provider = profile.llm_provider || "nvidia";
+  }
   if (provider === "nvidia" || !userKey) {
     const session = await getSession();
     const polishUrl = config.parseFunction.replace(/\/parse$/, "/polish");

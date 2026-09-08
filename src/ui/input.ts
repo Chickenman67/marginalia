@@ -596,33 +596,92 @@ export function starHoverValue(pos: number, offsetX: number, starWidth: number):
 
 export function bindStarEvents(host: HTMLElement, items: Item[]) {
   host.querySelectorAll<HTMLElement>(".stars").forEach((row) => {
+    let isDragging = false;
+    let lastValue = 0;
+    
+    const updateHover = (clientX: number, clientY: number): number => {
+      if (host.querySelector(".card.selected")) return 0;
+      const stars = Array.from(row.querySelectorAll<HTMLElement>(".star"));
+      for (const starEl of stars) {
+        const rect = starEl.getBoundingClientRect();
+        if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) {
+          const pos = Number(starEl.dataset.pos);
+          const offsetX = clientX - rect.left;
+          const value = starHoverValue(pos, offsetX, starEl.clientWidth);
+          row.dataset.hover = String(value);
+          const tip = row.querySelector<HTMLElement>(".tip");
+          if (tip) {
+            const id = row.dataset.item;
+            const it = id !== undefined ? items.find((x) => x.id === id) : undefined;
+            tip.textContent = (it && value === it.rating) ? "Clear" : String(value);
+          }
+          return value;
+        }
+      }
+      return 0;
+    };
+    
+    const handleMove = (clientX: number, clientY: number) => {
+      const value = updateHover(clientX, clientY);
+      if (isDragging && value > 0 && value !== lastValue) {
+        lastValue = value;
+        const id = row.dataset.item!;
+        const it = items.find((x) => x.id === id);
+        if (it) {
+          void setRating(id, value, items);
+        }
+      }
+    };
+    
     row.addEventListener("mouseenter", () => {
-      if (host.querySelector(".card.selected")) return; // selection mode
+      if (host.querySelector(".card.selected")) return;
     });
     row.addEventListener("mouseleave", () => {
+      isDragging = false;
+      if (row.dataset.hover !== undefined) delete row.dataset.hover;
     });
+    
+    row.addEventListener("mousedown", (e) => {
+      if (host.querySelector(".card.selected")) return;
+      isDragging = true;
+      const me = e as MouseEvent;
+      lastValue = updateHover(me.clientX, me.clientY);
+    });
+    
+    row.addEventListener("mouseup", () => {
+      isDragging = false;
+    });
+    
+    row.addEventListener("touchstart", (e) => {
+      if (host.querySelector(".card.selected")) return;
+      isDragging = true;
+      const te = e as TouchEvent;
+      const touch = te.touches[0];
+      lastValue = updateHover(touch.clientX, touch.clientY);
+    }, { passive: true });
+    
+    row.addEventListener("touchmove", (e) => {
+      if (host.querySelector(".card.selected")) return;
+      const te = e as TouchEvent;
+      const touch = te.touches[0];
+      handleMove(touch.clientX, touch.clientY);
+    }, { passive: true });
+    
+    row.addEventListener("touchend", () => {
+      isDragging = false;
+      if (row.dataset.hover !== undefined) delete row.dataset.hover;
+    });
+    
     row.querySelectorAll<HTMLElement>(".star").forEach((starEl) => {
       starEl.addEventListener("mousemove", (e) => {
-        if (host.querySelector(".card.selected")) return; // selection mode
-        const pos = Number(starEl.dataset.pos);
         const me = e as MouseEvent;
-        const value = starHoverValue(pos, me.offsetX, starEl.clientWidth);
-        row.dataset.hover = String(value);
-        // Update the tip text to follow the cursor. When the hovered position
-        // matches the current rating, show "Clear" so the toggle-off action
-        // (click same star to clear) is discoverable.
-        const tip = row.querySelector<HTMLElement>(".tip");
-        if (tip) {
-          const id = row.dataset.item;
-          const it = id !== undefined ? items.find((x) => x.id === id) : undefined;
-          tip.textContent = (it && value === it.rating) ? "Clear" : String(value);
-        }
+        handleMove(me.clientX, me.clientY);
       });
       starEl.addEventListener("mouseleave", () => {
-        if (row.dataset.hover !== undefined) delete row.dataset.hover;
+        if (!isDragging && row.dataset.hover !== undefined) delete row.dataset.hover;
       });
       starEl.addEventListener("click", async (e) => {
-        if (host.querySelector(".card.selected")) return; // selection mode
+        if (host.querySelector(".card.selected")) return;
         e.stopPropagation();
         const id = row.dataset.item!;
         const pos = Number(starEl.dataset.pos);
