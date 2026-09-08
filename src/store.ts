@@ -85,7 +85,7 @@ export async function addItem(parsed: ParsedItem): Promise<void> {
     kind: parsed.kind,
     title: parsed.title,
     datetime: parsed.datetime,
-    all_day: false,
+    all_day: parsed.allDay ?? false,
     reminder: parsed.reminder,
     status: "pending",
     created_at: new Date().toISOString(),

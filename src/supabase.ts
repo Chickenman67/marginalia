@@ -1,8 +1,27 @@
 import { config, STORAGE_KEYS } from "./config";
 import type { Item, ParsedItem, PolishResult, DraftItem } from "./types";
+import { applyResolve } from "./dates";
 import { getSession } from "./auth";
 
 let client: import("@supabase/supabase-js").SupabaseClient | null = null;
+
+// Cache of the signed-in user's per-profile LLM config so parse/polish don't
+// burn an extra profile round-trip on every phrase. Invalidated on settings
+// save (updateSettings in settings.ts).
+let profileLlmCache: { userId: string; key: string; provider: string } | null = null;
+export function invalidateProfileCache(): void { profileLlmCache = null; }
+
+async function sessionLlmConfig(session: { user: { id: string } }): Promise<{ key: string; provider: string }> {
+  if (!profileLlmCache || profileLlmCache.userId !== session.user.id) {
+    const profile = await fetchProfile(session.user.id);
+    profileLlmCache = {
+      userId: session.user.id,
+      key: profile.llm_key || "",
+      provider: profile.llm_provider || "nvidia"
+    };
+  }
+  return { key: profileLlmCache.key, provider: profileLlmCache.provider };
+}
 
 async function getClient() {
   if (client) return client;
@@ -24,7 +43,8 @@ export interface Profile {
   due_include_overdue: boolean;
   due_days_ahead: number;
   past_due_color: string | null;
-  provider: string;
+  llm_key: string | null;
+  llm_provider: string;
   updated_at: string;
 }
 
@@ -89,12 +109,17 @@ function tzOffsetMinutes(): number {
 }
 
 export async function parsePhrase(phrase: string): Promise<ParsedItem> {
-  const userKey = localStorage.getItem(STORAGE_KEYS.llmKey);
-  const provider = localStorage.getItem(STORAGE_KEYS.provider) || "nvidia";
+  const session = await getSession();
+  let userKey = localStorage.getItem(STORAGE_KEYS.llmKey) || "";
+  let provider = localStorage.getItem(STORAGE_KEYS.provider) || "nvidia";
+  if (session) {
+    const llm = await sessionLlmConfig(session);
+    userKey = llm.key;
+    provider = llm.provider;
+  }
 
   // "nvidia" = use the free shared proxy (no key). Any other provider uses the saved key.
   if (provider === "nvidia" || !userKey) {
-    const session = await getSession();
     const r = await fetch(config.parseFunction, {
       method: "POST",
       headers: {
@@ -104,14 +129,14 @@ export async function parsePhrase(phrase: string): Promise<ParsedItem> {
       body: JSON.stringify({ phrase, tzOffsetMinutes: tzOffsetMinutes() })
     });
     if (!r.ok) throw new Error(`parse failed: ${r.status}`);
-    return (await r.json()) as ParsedItem;
+    return applyResolve((await r.json()) as ParsedItem, phrase);
   }
-  return parseDirect(phrase, provider, userKey);
+  return applyResolve(await parseDirect(phrase, provider, userKey), phrase);
 }
 
 async function parseDirect(phrase: string, provider: string, key: string): Promise<ParsedItem> {
   // Gemini: key-in-URL, responseSchema. Groq: OpenAI-compat, json_object.
-  const sys = "Convert a scheduling phrase into JSON {title, datetime (ISO8601 or null), type ('todo'|'event'), reminder (ISO8601 or null)}. datetime present => event.";
+  const sys = "Convert a scheduling phrase into JSON {title, datetime (ISO8601 or null), type ('todo'|'event'), reminder (ISO8601 or null)}. datetime present => event. A BARE weekday name with no clock time ('wednesday') is an ALL-DAY event on the NEAREST upcoming occurrence of that weekday (today counts; this week if still ahead, otherwise next week). Time-of-day words (morning 9am, afternoon 2pm, evening 6pm, tonight 8pm) are timed events at that hour, never todos. type 'todo' ONLY if no date or time-of-day is mentioned.";
   if (provider === "gemini") {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${key}`;
     const res = await fetch(url, {
@@ -162,6 +187,7 @@ function normalize(j: any): ParsedItem {
     title: String(j.title ?? "Untitled").slice(0, 120),
     kind,
     datetime,
+    allDay: !!(j.allDay),
     reminder: j.reminder ? asLocalISO(j.reminder) : null
   };
 }
@@ -173,15 +199,24 @@ function normalizeDraft(j: any): DraftItem {
     title: String(j.title ?? "Untitled").slice(0, 120),
     kind,
     datetime,
+    allDay: !!(j.allDay),
     reminder: j.reminder ? asLocalISO(j.reminder) : null
   };
 }
 
 export async function polishPhrase(paragraph: string): Promise<PolishResult> {
-  const userKey = localStorage.getItem(STORAGE_KEYS.llmKey);
-  const provider = localStorage.getItem(STORAGE_KEYS.provider) || "nvidia";
+  const session = await getSession();
+  let userKey = localStorage.getItem(STORAGE_KEYS.llmKey) || "";
+  let provider = localStorage.getItem(STORAGE_KEYS.provider) || "nvidia";
+  if (session) {
+    const llm = await sessionLlmConfig(session);
+    userKey = llm.key;
+    provider = llm.provider;
+  }
+  // The resolver is applied per cleaned title, so a weekday/time-of-day cue the
+  // model drops from an item's title is not recovered (known limitation of the
+  // dictate path; the draft editor lets the user fix dates before adding).
   if (provider === "nvidia" || !userKey) {
-    const session = await getSession();
     const polishUrl = config.parseFunction.replace(/\/parse$/, "/polish");
     const r = await fetch(polishUrl, {
       method: "POST",
@@ -192,13 +227,15 @@ export async function polishPhrase(paragraph: string): Promise<PolishResult> {
       body: JSON.stringify({ paragraph, tzOffsetMinutes: tzOffsetMinutes() })
     });
     if (!r.ok) throw new Error(`polish failed: ${r.status}`);
-    return (await r.json()) as PolishResult;
+    const proxied = (await r.json()) as PolishResult;
+    return { items: proxied.items.map((it) => applyResolve(it, it.title)) };
   }
-  return polishDirect(paragraph, provider, userKey);
+  const direct = await polishDirect(paragraph, provider, userKey);
+  return { items: direct.items.map((it) => applyResolve(it, it.title)) };
 }
 
 async function polishDirect(paragraph: string, provider: string, key: string): Promise<PolishResult> {
-  const sys = "Organize a rambling paragraph into a JSON object {items:[{title, kind('event'|'todo'), datetime(ISO8601 or null), reminder(ISO8601 or null)}]}. If a line has a time it is an event, otherwise a todo. Resolve relative times to the user's LOCAL time and current year. RELATIVE-NOW cues like 'in the next hour' / 'in 30 minutes' mean FROM NOW (today), never tomorrow — anchor on the current time. Weekday names resolve to the NEXT occurrence from today. Cap at 100 items.";
+  const sys = "Organize a rambling paragraph into a JSON object {items:[{title, kind('event'|'todo'), datetime(ISO8601 or null), reminder(ISO8601 or null)}]}. If a line has a time it is an event, otherwise a todo. Resolve relative times to the user's LOCAL time and current year. RELATIVE-NOW cues like 'in the next hour' / 'in 30 minutes' mean FROM NOW (today), never tomorrow — anchor on the current time. A bare weekday with no time ('wednesday') is an ALL-DAY event on the nearest upcoming occurrence of that weekday (this week, else next week). Time-of-day words make timed events, never todos. Cap at 100 items.";
   let parsed: any;
   if (provider === "gemini") {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${key}`;
@@ -269,11 +306,16 @@ export async function updateProfile(userId: string, patch: Partial<Profile>): Pr
 // --- Test-provider-key (unchanged signature; drop token header) ---
 export async function testProviderKey(provider: string, key: string): Promise<{ ok: boolean; message: string }> {
   if (provider === "nvidia") {
+    if (!config.parseFunction) {
+      return { ok: false, message: "NVIDIA proxy not configured (no Supabase link)." };
+    }
     try {
+      const session = await getSession();
+      if (!session) return { ok: false, message: "Sign in first, then test the NVIDIA proxy." };
       const res = await fetch(config.parseFunction, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.supabaseAnon}` },
-        body: JSON.stringify({ phrase: "test" })
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ phrase: "test", tzOffsetMinutes: tzOffsetMinutes() })
       });
       return res.ok
         ? { ok: true, message: "NVIDIA proxy works (no key needed)." }

@@ -1,4 +1,4 @@
-import { fetchProfile, updateProfile } from "./supabase";
+import { fetchProfile, updateProfile, invalidateProfileCache } from "./supabase";
 import { getSession } from "./auth";
 import { STORAGE_KEYS } from "./config";
 
@@ -19,6 +19,8 @@ export interface Settings {
   dueIncludeOverdue: boolean;
   dueDaysAhead: number;
   pastDueColor: string;
+  llmKey?: string;
+  llmProvider?: string;
 }
 
 let cache: Settings | null = null;
@@ -51,7 +53,9 @@ export async function loadSettings(): Promise<Settings> {
       browserNotifications: typeof Notification !== "undefined" && Notification.permission === "granted",
       dueIncludeOverdue: p.due_include_overdue ?? true,
       dueDaysAhead: p.due_days_ahead ?? 7,
-      pastDueColor: p.past_due_color ?? defaults().pastDueColor
+      pastDueColor: p.past_due_color ?? defaults().pastDueColor,
+      llmKey: p.llm_key ?? undefined,
+      llmProvider: p.llm_provider ?? "nvidia"
     };
   } catch {
     cache = defaults();
@@ -81,7 +85,11 @@ export async function updateSettings(patch: Partial<Settings>): Promise<void> {
   cache = { ...getSettings(), ...patch };
   notifyListeners();
   const session = await getSession();
-  if (!session) return;
+  if (!session) {
+    if (patch.llmKey !== undefined) localStorage.setItem(STORAGE_KEYS.llmKey, patch.llmKey);
+    if (patch.llmProvider !== undefined) localStorage.setItem(STORAGE_KEYS.provider, patch.llmProvider);
+    return;
+  }
   const map: Record<string, any> = {
     autoRemindEvents: "auto_remind_events",
     militaryTime: "military_time",
@@ -90,7 +98,9 @@ export async function updateSettings(patch: Partial<Settings>): Promise<void> {
     colorRules: "color_rules",
     dueIncludeOverdue: "due_include_overdue",
     dueDaysAhead: "due_days_ahead",
-    pastDueColor: "past_due_color"
+    pastDueColor: "past_due_color",
+    llmKey: "llm_key",
+    llmProvider: "llm_provider"
   };
   const profilePatch: Record<string, any> = {};
   for (const [k, v] of Object.entries(patch)) {
@@ -100,6 +110,7 @@ export async function updateSettings(patch: Partial<Settings>): Promise<void> {
   if (Object.keys(profilePatch).length) {
     await updateProfile(session.user.id, profilePatch);
   }
+  invalidateProfileCache();
 }
 
 export async function enableNotifications(): Promise<boolean> {

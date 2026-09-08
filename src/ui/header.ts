@@ -1,6 +1,6 @@
 import { STORAGE_KEYS } from "../config";
 import { getSettings, updateSettings, enableNotifications, type ColorRule, DEFAULT_COLOR_RULES, nextColorForNewRule, cleanColorRules } from "../settings";
-import { testProviderKey } from "../supabase";
+import { testProviderKey, fetchProfile } from "../supabase";
 import { getSession, signOut } from "../auth";
 import { esc } from "./views";
 import { toCSV, toText, parseFile, applyImport, download } from "../backup";
@@ -118,10 +118,23 @@ export async function mountHeader(): Promise<void> {
       withinHours: Math.max(1, Number((row.querySelector(".rule-hours") as HTMLInputElement).value) || 24)
     }));
 
-  const openSettings = () => {
+  const openSettings = async () => {
     const s = getSettings();
-    apiKey.value = localStorage.getItem(STORAGE_KEYS.llmKey) || "";
-    provider.value = localStorage.getItem(STORAGE_KEYS.provider) || "nvidia";
+    let storedKey = localStorage.getItem(STORAGE_KEYS.llmKey) || "";
+    let storedProvider = localStorage.getItem(STORAGE_KEYS.provider) || "nvidia";
+    const session = await getSession();
+    if (session) {
+      try {
+        const profile = await fetchProfile(session.user.id);
+        storedKey = profile.llm_key || storedKey;
+        storedProvider = profile.llm_provider || storedProvider;
+      } catch {
+        // Profile fetch unavailable (e.g. demo build without Supabase env);
+        // keep the local-storage values so Settings still opens.
+      }
+    }
+    apiKey.value = storedKey;
+    provider.value = storedProvider;
     setAuto.checked = s.autoRemindEvents;
     setMilitary.checked = s.militaryTime;
     setNotify.checked = s.browserNotifications && typeof Notification !== "undefined" && Notification.permission === "granted";
@@ -149,10 +162,9 @@ export async function mountHeader(): Promise<void> {
     if (e.target === back) back.classList.remove("show");
   });
   document.getElementById("settingsSave")!.addEventListener("click", () => {
-    localStorage.setItem(STORAGE_KEYS.llmKey, apiKey.value.trim());
-    localStorage.setItem(STORAGE_KEYS.provider, provider.value);
-
     const snapshot = {
+      llmKey: apiKey.value.trim(),
+      llmProvider: provider.value,
       autoRemindEvents: setAuto.checked,
       militaryTime: setMilitary.checked,
       colorRules: cleanColorRules(readRules()),
@@ -201,7 +213,7 @@ export async function mountHeader(): Promise<void> {
   const testBtn = document.getElementById("keyTest")!;
   testBtn.addEventListener("click", async () => {
     const key = apiKey.value.trim();
-    if (!key) { keyStatus.textContent = "Enter a key first."; keyStatus.className = "key-status bad"; return; }
+    if (provider.value !== "nvidia" && !key) { keyStatus.textContent = "Enter a key first."; keyStatus.className = "key-status bad"; return; }
     keyStatus.textContent = "Testing…";
     keyStatus.className = "key-status";
     const r = await testProviderKey(provider.value, key);

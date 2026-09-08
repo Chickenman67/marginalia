@@ -20,6 +20,7 @@ export interface ParsedItem {
   title: string;
   kind: ItemKind;
   datetime: string | null;
+  allDay?: boolean;
   reminder: string | null;
 }
 
@@ -27,6 +28,7 @@ export interface DraftItem {
   title: string;
   kind: ItemKind;
   datetime: string | null;
+  allDay?: boolean;
   reminder: string | null;
 }
 

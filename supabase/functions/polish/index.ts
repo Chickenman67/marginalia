@@ -24,23 +24,32 @@ Output ONLY valid JSON of the form:
 The user's CURRENT local time RIGHT NOW is: ${now.toString()} (their local offset from UTC is ${tzOffsetMinutes >= 0 ? "+" : "-"}${Math.abs(tzOffsetMinutes)} minutes).
 Rules:
 - Split run-on sentences into separate items.
-- "event" only when a specific time is implied; otherwise "todo".
+- A BARE weekday name with no clock time ("wednesday") is an ALL-DAY EVENT on the NEAREST upcoming occurrence of that weekday (today counts; this week if still ahead, otherwise next week).
+- Time-of-day words ("morning" 09:00, "afternoon" 14:00, "evening" 18:00, "tonight" 20:00, "night" 21:00) make TIMED EVENTS on that day — never todos.
+- Otherwise, "event" only when a specific time is implied; otherwise "todo".
 - Resolve relative cues (today, tomorrow, next Tuesday) to the user's LOCAL wall-clock time and current year.
 - ALWAYS emit the user's LOCAL wall-clock hour/minute. Do NOT convert to UTC.
 - Each title is a short, polished, grammatical label (no leading articles like "ok" or "so").
 - Do not include commentary.`;
 }
 
-Deno.serve(async (req) => {
-  // CORS for browser-direct calls. Restrict to the deployed app origin.
-  // Set APP_ORIGIN (supabase secrets set APP_ORIGIN=https://your-site.example).
-  const ALLOWED_ORIGIN = Deno.env.get("APP_ORIGIN") || "*";
-  const cors = {
-    "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+// CORS for browser-direct calls. Echo the request Origin when it is the
+// configured app origin or a local dev server, so preflight from `npm run dev`
+// (http://localhost:*) doesn't fail. Locked down to anything else.
+function corsFor(req: Request): Record<string, string> {
+  const allowed = Deno.env.get("APP_ORIGIN") || "*";
+  const origin = req.headers.get("origin") ?? "";
+  const isLocal = /^https?:\/\/localhost(:\d+)?$/.test(origin);
+  const serve = (isLocal || allowed === "*" || origin === allowed) ? (origin || allowed) : allowed;
+  return {
+    "Access-Control-Allow-Origin": serve,
     "Access-Control-Allow-Headers": "content-type, authorization",
     "Access-Control-Allow-Methods": "POST, OPTIONS"
   };
-  if (req.method === "OPTIONS") return new Response(null, { headers: cors });
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsFor(req) });
 
   // --- Auth: verify the Supabase JWT from the Authorization header ---
   const auth = req.headers.get("authorization") ?? "";
@@ -57,18 +66,27 @@ Deno.serve(async (req) => {
   const userId = userData.user.id;
 
   // Durable, per-user rate limit (NVIDIA is free but shared; protect the quota).
-  const { data: allowed, error: rlErr } = await supabase.rpc("check_rate_limit", {
+  // public.check_rate_limit is EXECUTE-granted to service_role only, so it must
+  // run via an admin client — the user-scoped client is denied and would make
+  // every request look rate-limited (429). Fail loudly if the key is missing:
+  // falling back to the anon key would silently reintroduce that 429-everywhere.
+  const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!SERVICE_ROLE_KEY) {
+    return new Response(JSON.stringify({ error: "rate limiter misconfigured" }), { status: 500, headers: { ...corsFor(req), "content-type": "application/json" } });
+  }
+  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+  const { data: allowed, error: rlErr } = await admin.rpc("check_rate_limit", {
     p_space: userId,
     p_max: 30,
     p_window_sec: 60
   });
   if (rlErr || !allowed) {
-    return new Response(JSON.stringify({ error: "rate limited, try again shortly" }), { status: 429, headers: { ...cors, "content-type": "application/json" } });
+    return new Response(JSON.stringify({ error: "rate limited, try again shortly" }), { status: 429, headers: { ...corsFor(req), "content-type": "application/json" } });
   }
 
   const key = Deno.env.get("NVIDIA_KEY");
   if (!key) {
-    return new Response(JSON.stringify({ error: "parser not configured" }), { status: 500, headers: { ...cors, "content-type": "application/json" } });
+    return new Response(JSON.stringify({ error: "parser not configured" }), { status: 500, headers: { ...corsFor(req), "content-type": "application/json" } });
   }
 
   let paragraph = "";
@@ -79,10 +97,10 @@ Deno.serve(async (req) => {
     const off = Number(body.tzOffsetMinutes);
     if (Number.isFinite(off)) tzOffsetMinutes = off;
   } catch {
-    return new Response(JSON.stringify({ error: "invalid body" }), { status: 400, headers: { ...cors, "content-type": "application/json" } });
+    return new Response(JSON.stringify({ error: "invalid body" }), { status: 400, headers: { ...corsFor(req), "content-type": "application/json" } });
   }
   if (!paragraph) {
-    return new Response(JSON.stringify({ error: "empty paragraph" }), { status: 400, headers: { ...cors, "content-type": "application/json" } });
+    return new Response(JSON.stringify({ error: "empty paragraph" }), { status: 400, headers: { ...corsFor(req), "content-type": "application/json" } });
   }
 
   const nvidiaRes = await fetch(NVIDIA_URL, {
@@ -101,7 +119,7 @@ Deno.serve(async (req) => {
 
   if (!nvidiaRes.ok) {
     const text = await nvidiaRes.text();
-    return new Response(JSON.stringify({ error: "nvidia error", detail: text }), { status: 502, headers: { ...cors, "content-type": "application/json" } });
+    return new Response(JSON.stringify({ error: "nvidia error", detail: text }), { status: 502, headers: { ...corsFor(req), "content-type": "application/json" } });
   }
 
   const data = await nvidiaRes.json();
@@ -119,5 +137,5 @@ Deno.serve(async (req) => {
     }))
   };
 
-  return new Response(JSON.stringify(out), { headers: { ...cors, "content-type": "application/json" } });
+  return new Response(JSON.stringify(out), { headers: { ...corsFor(req), "content-type": "application/json" } });
 });
