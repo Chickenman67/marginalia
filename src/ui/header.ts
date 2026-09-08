@@ -201,7 +201,7 @@ export async function mountHeader(): Promise<void> {
   const testBtn = document.getElementById("keyTest")!;
   testBtn.addEventListener("click", async () => {
     const key = apiKey.value.trim();
-    if (!key) { keyStatus.textContent = "Enter a key first."; keyStatus.className = "key-status bad"; return; }
+    if (provider.value !== "nvidia" && !key) { keyStatus.textContent = "Enter a key first."; keyStatus.className = "key-status bad"; return; }
     keyStatus.textContent = "Testing…";
     keyStatus.className = "key-status";
     const r = await testProviderKey(provider.value, key);
