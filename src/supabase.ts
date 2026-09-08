@@ -5,6 +5,24 @@ import { getSession } from "./auth";
 
 let client: import("@supabase/supabase-js").SupabaseClient | null = null;
 
+// Cache of the signed-in user's per-profile LLM config so parse/polish don't
+// burn an extra profile round-trip on every phrase. Invalidated on settings
+// save (updateSettings in settings.ts).
+let profileLlmCache: { userId: string; key: string; provider: string } | null = null;
+export function invalidateProfileCache(): void { profileLlmCache = null; }
+
+async function sessionLlmConfig(session: { user: { id: string } }): Promise<{ key: string; provider: string }> {
+  if (!profileLlmCache || profileLlmCache.userId !== session.user.id) {
+    const profile = await fetchProfile(session.user.id);
+    profileLlmCache = {
+      userId: session.user.id,
+      key: profile.llm_key || "",
+      provider: profile.llm_provider || "nvidia"
+    };
+  }
+  return { key: profileLlmCache.key, provider: profileLlmCache.provider };
+}
+
 async function getClient() {
   if (client) return client;
   const { createClient } = await import("@supabase/supabase-js");
@@ -92,17 +110,16 @@ function tzOffsetMinutes(): number {
 
 export async function parsePhrase(phrase: string): Promise<ParsedItem> {
   const session = await getSession();
-  let userKey = localStorage.getItem(STORAGE_KEYS.llmKey);
+  let userKey = localStorage.getItem(STORAGE_KEYS.llmKey) || "";
   let provider = localStorage.getItem(STORAGE_KEYS.provider) || "nvidia";
   if (session) {
-    const profile = await fetchProfile(session.user.id);
-    userKey = profile.llm_key || "";
-    provider = profile.llm_provider || "nvidia";
+    const llm = await sessionLlmConfig(session);
+    userKey = llm.key;
+    provider = llm.provider;
   }
 
   // "nvidia" = use the free shared proxy (no key). Any other provider uses the saved key.
   if (provider === "nvidia" || !userKey) {
-    const session = await getSession();
     const r = await fetch(config.parseFunction, {
       method: "POST",
       headers: {
@@ -119,7 +136,7 @@ export async function parsePhrase(phrase: string): Promise<ParsedItem> {
 
 async function parseDirect(phrase: string, provider: string, key: string): Promise<ParsedItem> {
   // Gemini: key-in-URL, responseSchema. Groq: OpenAI-compat, json_object.
-  const sys = "Convert a scheduling phrase into JSON {title, datetime (ISO8601 or null), type ('todo'|'event'), reminder (ISO8601 or null)}. datetime present => event. A BARE weekday name with no clock time ('wednesday') is an ALL-DAY event on the NEAREST upcoming occurrence of that weekday (today counts; this week if still ahead, otherwise next week). Time-of-day words (morning 9am, afternoon 2pm, evening 6pm, tonigh 8pm) are timed events at that hour, never todos. type 'todo' ONLY if no date or time-of-day is mentioned.";
+  const sys = "Convert a scheduling phrase into JSON {title, datetime (ISO8601 or null), type ('todo'|'event'), reminder (ISO8601 or null)}. datetime present => event. A BARE weekday name with no clock time ('wednesday') is an ALL-DAY event on the NEAREST upcoming occurrence of that weekday (today counts; this week if still ahead, otherwise next week). Time-of-day words (morning 9am, afternoon 2pm, evening 6pm, tonight 8pm) are timed events at that hour, never todos. type 'todo' ONLY if no date or time-of-day is mentioned.";
   if (provider === "gemini") {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${key}`;
     const res = await fetch(url, {
@@ -189,15 +206,17 @@ function normalizeDraft(j: any): DraftItem {
 
 export async function polishPhrase(paragraph: string): Promise<PolishResult> {
   const session = await getSession();
-  let userKey = localStorage.getItem(STORAGE_KEYS.llmKey);
+  let userKey = localStorage.getItem(STORAGE_KEYS.llmKey) || "";
   let provider = localStorage.getItem(STORAGE_KEYS.provider) || "nvidia";
   if (session) {
-    const profile = await fetchProfile(session.user.id);
-    userKey = profile.llm_key || "";
-    provider = profile.llm_provider || "nvidia";
+    const llm = await sessionLlmConfig(session);
+    userKey = llm.key;
+    provider = llm.provider;
   }
+  // The resolver is applied per cleaned title, so a weekday/time-of-day cue the
+  // model drops from an item's title is not recovered (known limitation of the
+  // dictate path; the draft editor lets the user fix dates before adding).
   if (provider === "nvidia" || !userKey) {
-    const session = await getSession();
     const polishUrl = config.parseFunction.replace(/\/parse$/, "/polish");
     const r = await fetch(polishUrl, {
       method: "POST",

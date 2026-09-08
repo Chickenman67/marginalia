@@ -86,9 +86,13 @@ Deno.serve(async (req) => {
   // Durable, per-user rate limit (NVIDIA is free but shared; protect the quota).
   // public.check_rate_limit is EXECUTE-granted to service_role only, so it must
   // run via an admin client — the user-scoped client is denied and would make
-  // every request look rate-limited (429).
+  // every request look rate-limited (429). Fail loudly if the key is missing:
+  // falling back to the anon key would silently reintroduce that 429-everywhere.
   const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY || SUPABASE_ANON_KEY, { auth: { persistSession: false } });
+  if (!SERVICE_ROLE_KEY) {
+    return new Response(JSON.stringify({ error: "rate limiter misconfigured" }), { status: 500, headers: { ...corsFor(req), "content-type": "application/json" } });
+  }
+  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
   const { data: allowed, error: rlErr } = await admin.rpc("check_rate_limit", {
     p_space: userId,
     p_max: 30,

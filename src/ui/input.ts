@@ -74,7 +74,7 @@ export function mountInput(): void {
     pending = null;
     document.getElementById("confirmWrap")?.remove();
   }
-  async function showConfirm(parsed: ParsedItem) {
+  function showConfirm(parsed: ParsedItem) {
     pending = parsed;
     document.getElementById("confirmWrap")?.remove();
     const wrapOuter = document.createElement("div");
@@ -636,9 +636,6 @@ export function bindStarEvents(host: HTMLElement, items: Item[]) {
       }
     };
     
-    row.addEventListener("mouseenter", () => {
-      if (host.querySelector(".card.selected")) return;
-    });
     row.addEventListener("mouseleave", () => {
       isDragging = false;
       if (row.dataset.hover !== undefined) delete row.dataset.hover;

@@ -1,4 +1,4 @@
-import { fetchProfile, updateProfile } from "./supabase";
+import { fetchProfile, updateProfile, invalidateProfileCache } from "./supabase";
 import { getSession } from "./auth";
 import { STORAGE_KEYS } from "./config";
 
@@ -53,7 +53,9 @@ export async function loadSettings(): Promise<Settings> {
       browserNotifications: typeof Notification !== "undefined" && Notification.permission === "granted",
       dueIncludeOverdue: p.due_include_overdue ?? true,
       dueDaysAhead: p.due_days_ahead ?? 7,
-      pastDueColor: p.past_due_color ?? defaults().pastDueColor
+      pastDueColor: p.past_due_color ?? defaults().pastDueColor,
+      llmKey: p.llm_key ?? undefined,
+      llmProvider: p.llm_provider ?? "nvidia"
     };
   } catch {
     cache = defaults();
@@ -108,6 +110,7 @@ export async function updateSettings(patch: Partial<Settings>): Promise<void> {
   if (Object.keys(profilePatch).length) {
     await updateProfile(session.user.id, profilePatch);
   }
+  invalidateProfileCache();
 }
 
 export async function enableNotifications(): Promise<boolean> {

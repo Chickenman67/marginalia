@@ -3,6 +3,16 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mountHeader } from "../../src/ui/header";
 import { getSession, signOut } from "../../src/auth";
 
+// openSettings resolves async (session/profile lookup + dynamic import of
+// supabase-js), so modal state lands a tick or two after the triggering click.
+// Poll instead of assuming a fixed number of macrotasks.
+async function waitFor(fn: () => boolean): Promise<void> {
+  for (let i = 0; i < 25; i++) {
+    if (fn()) return;
+    await new Promise((r) => setTimeout(r, 0));
+  }
+}
+
 vi.mock("../../src/auth", () => ({
   getSession: vi.fn(),
   signOut: vi.fn()
@@ -108,8 +118,7 @@ describe("user menu header", () => {
     menu.click();
     const back = document.getElementById("settingsModal")!;
     document.getElementById("userSettings")!.click();
-    // openSettings is async (session/profile lookup); let it complete.
-    await new Promise((r) => setTimeout(r, 0));
+    await waitFor(() => back.classList.contains("show"));
     expect(back.classList.contains("show")).toBe(true);
     expect(menu.getAttribute("aria-expanded")).toBe("false");
   });
@@ -122,7 +131,7 @@ describe("settings modal dismiss", () => {
     const back = document.getElementById("settingsModal")!;
     const btn = document.getElementById("settingsBtn")!;
     btn.click();
-    await new Promise((r) => setTimeout(r, 0));
+    await waitFor(() => back.classList.contains("show"));
     expect(back.classList.contains("show")).toBe(true);
     back.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(back.classList.contains("show")).toBe(false);
@@ -135,7 +144,7 @@ describe("settings modal dismiss", () => {
     const panel = back.querySelector(".spanel")!;
     const btn = document.getElementById("settingsBtn")!;
     btn.click();
-    await new Promise((r) => setTimeout(r, 0));
+    await waitFor(() => back.classList.contains("show"));
     expect(back.classList.contains("show")).toBe(true);
     panel.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(back.classList.contains("show")).toBe(true);
@@ -147,7 +156,7 @@ describe("settings modal dismiss", () => {
     const back = document.getElementById("settingsModal")!;
     const btn = document.getElementById("settingsBtn")!;
     btn.click();
-    await new Promise((r) => setTimeout(r, 0));
+    await waitFor(() => back.classList.contains("show"));
     expect(back.classList.contains("show")).toBe(true);
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     expect(back.classList.contains("show")).toBe(false);
