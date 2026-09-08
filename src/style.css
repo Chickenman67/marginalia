@@ -642,3 +642,13 @@ main { flex: 1; padding: 18px 22px 150px; }
   .card.todo .title { font-size: 15px; }
   .card.todo .stars .star { width: 18px; height: 18px; }
 }
+
+/* --- Confirm card (implied scheduling time — "wednesday", "by morning") --- */
+#confirmWrap { margin-top: 10px; }
+.confirm-card { display: grid; gap: 10px; padding: 12px 14px; border: 1px solid #d9d2c1; border-radius: 12px; background: #fff; box-shadow: 0 2px 10px rgba(60, 50, 20, .06); }
+.confirm-title { font-weight: 600; font-size: 14px; color: #2c2a24; }
+.confirm-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.confirm-row .picker-trigger { padding: 6px 10px; font-size: 13px; }
+.confirm-row .cf-allday { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #5a564c; }
+.confirm-actions { display: flex; gap: 8px; }
+.confirm-actions .btn { padding: 7px 14px; }

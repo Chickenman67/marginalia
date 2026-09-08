@@ -4,7 +4,8 @@ import { createSpeech } from "../speech";
 import { cardHTML, bindCardEvents, groupByDay, esc, applyViewV2, starClickValue, type ScheduleState, type TodosState, type DueState } from "./views";
 import { mountFilterPanel } from "./filterPanel";
 import { openCalendar, openTimePicker } from "./calendar";
-import { getSettings, formatClock, subscribeSettings } from "../settings";
+import { getSettings, subscribeSettings } from "../settings";
+import { resolveSchedule, guessResolve } from "../dates";
 import type { Item, ParsedItem, DraftItem, PolishResult } from "../types";
 
 function el<T extends HTMLElement>(sel: string): T { return document.querySelector(sel) as T; }
@@ -26,7 +27,7 @@ function showNotice(msg: string) {
 export function mountInput(): void {
   const phraseEl = el<HTMLInputElement>("#phrase");
   const preview = el<HTMLDivElement>("#preview");
-  const previewText = el<HTMLSpanElement>("#previewText");
+  const previewTextEl = el<HTMLSpanElement>("#previewText");
   const micBtn = el<HTMLButtonElement>("#mic");
   const hint = el<HTMLDivElement>("#hint");
   const quick = el<HTMLDivElement>("#quick");
@@ -35,6 +36,8 @@ export function mountInput(): void {
   const paraMic = el<HTMLButtonElement>("#paraMic");
 
   const speech = createSpeech();
+  const addBtn = el<HTMLButtonElement>("#quickAdd");
+  const mic = el<HTMLButtonElement>("#mic");
   // Track where the latest text in the input came from. The dictation path
   // hits the LLM (voice transcription is messy; LLM cleans it up). Manual
   // typing skips the LLM and adds instantly with the local guess — typing is
@@ -56,7 +59,7 @@ export function mountInput(): void {
     const text = phraseEl.value.trim();
     if (!text) { preview.classList.remove("show"); draft = null; return; }
     draft = guess(text);
-    previewText.textContent = `${draft.kind === "event" ? "📅" : "☑"} ${esc(draft.title)}${draft.datetime ? " · " + clock(draft.datetime) : ""}`;
+    previewTextEl.textContent = previewText(draft);
     preview.classList.add("show");
   }
   // Manual typing resets the voice flag — once the user touches the keyboard
@@ -66,11 +69,80 @@ export function mountInput(): void {
   el<HTMLButtonElement>("#quickAdd").onclick = commit;
   el<HTMLSpanElement>("#previewX").onclick = () => { fromVoice = false; phraseEl.value = ""; preview.classList.remove("show"); draft = null; };
 
+  let pending: ParsedItem | null = null;
+  function clearConfirm() {
+    pending = null;
+    document.getElementById("confirmWrap")?.remove();
+  }
+  async function showConfirm(parsed: ParsedItem) {
+    pending = parsed;
+    document.getElementById("confirmWrap")?.remove();
+    const wrapOuter = document.createElement("div");
+    wrapOuter.id = "confirmWrap";
+    const card = document.createElement("div");
+    card.className = "confirm-card";
+    wrapOuter.appendChild(card);
+
+    const ldt = parsed.datetime ? toLocalInput(parsed.datetime) : "";
+    let date = ldt ? ldt.slice(0, 10) : new Date().toISOString().slice(0, 10);
+    let time = ldt ? ldt.slice(11) : "";
+    if (!time) time = "09:00";
+    let allDay = parsed.allDay ?? parsed.kind === "event";
+
+    const render = () => {
+      const mil = getSettings().militaryTime;
+      const timeLabel = allDay ? "All day" : mil ? time : fmtAmPm(time);
+      card.innerHTML = `
+        <div class="confirm-title">${esc(parsed.title)}</div>
+        <div class="confirm-row">
+          <button type="button" class="picker-trigger" id="cfDate">${fmtDate(date)}</button>
+          <button type="button" class="picker-trigger" id="cfTime" ${allDay ? "hidden" : ""}>${timeLabel}</button>
+          <label class="cf-allday"><input type="checkbox" id="cfAllDay" ${allDay ? "checked" : ""} /> all day</label>
+        </div>
+        <div class="confirm-actions">
+          <button type="button" class="btn primary" id="cfAdd">Add</button>
+          <button type="button" class="btn" id="cfX">Cancel</button>
+        </div>`;
+      const dateBtn = card.querySelector<HTMLButtonElement>("#cfDate")!;
+      dateBtn.onclick = () => openCalendar(dateBtn, date, (iso) => { date = iso; render(); });
+      const timeBtn = card.querySelector<HTMLButtonElement>("#cfTime")!;
+      timeBtn.onclick = () => {
+        (window as any).__marginaliaMilitary = getSettings().militaryTime;
+        openTimePicker(timeBtn, time, (t) => { time = t; render(); });
+      };
+      card.querySelector<HTMLInputElement>("#cfAllDay")!.onchange = (e) => {
+        allDay = (e.target as HTMLInputElement).checked;
+        render();
+      };
+      card.querySelector<HTMLButtonElement>("#cfAdd")!.onclick = () => {
+        const iso = allDay
+          ? localToISO(`${date}T00:00:00`)
+          : localToISO(`${date}T${time}:00`);
+        pending = { ...pending!, kind: "event", datetime: iso ?? pending!.datetime, allDay };
+        void addItem(pending!).then(() => {
+          clearConfirm();
+          phraseEl.value = "";
+          preview.classList.remove("show");
+          draft = null;
+          addBtn.disabled = false;
+          mic.disabled = !speech.supported;
+          phraseEl.disabled = false;
+          addBtn.textContent = "Add";
+        });
+      };
+      card.querySelector<HTMLButtonElement>("#cfX")!.onclick = () => {
+        clearConfirm();
+        updatePreview();
+      };
+    };
+    render();
+    // Place the card right below the preview bar inside the quick-add area.
+    preview.insertAdjacentElement("afterend", wrapOuter);
+  }
+
   async function commit() {
     const text = phraseEl.value.trim();
     if (!text) return;
-    const addBtn = el<HTMLButtonElement>("#quickAdd");
-    const mic = el<HTMLButtonElement>("#mic");
     addBtn.disabled = true;
     mic.disabled = true;
     phraseEl.disabled = true;
@@ -90,6 +162,16 @@ export function mountInput(): void {
       }
     } else {
       parsed = guess(text);
+    }
+    // Ambiguous implied time ("wednesday", "by morning") → let the user confirm
+    // the resolved date/time before adding. Explicit cues skip this.
+    if (resolveSchedule(text)) {
+      showConfirm(parsed);
+      addBtn.disabled = false;
+      mic.disabled = !speech.supported;
+      phraseEl.disabled = false;
+      addBtn.textContent = "Add";
+      return;
     }
     await addItem(parsed);
     phraseEl.value = "";
@@ -182,7 +264,7 @@ export function mountInput(): void {
 
   async function addAll() {
     for (const i of currentDraft) {
-      await addItem({ title: i.title, kind: i.kind, datetime: i.datetime, reminder: i.reminder });
+      await addItem({ title: i.title, kind: i.kind, datetime: i.datetime, allDay: i.allDay, reminder: i.reminder });
     }
     el<HTMLTextAreaElement>("#para").value = "";
     el<HTMLDivElement>("#draft").innerHTML = "";
@@ -196,10 +278,12 @@ function guess(text: string): ParsedItem {
   const lower = text.toLowerCase();
   const hasTime = /\b\d{1,2}:\d{2}\s*(am|pm)?\b|\b\d{1,2}\s*(am|pm)\b|\btomorrow\b|\btoday\b|\btonight\b|\bmonday\b|\btuesday\b|\bwednesday\b|\bthursday\b|\bfriday\b|\bsaturday\b|\bsunday\b|\bnext week\b|\bafternoon\b|\bmorning\b|\bevening\b|\blunch\b|\bdinner\b|\bnoon\b|\bbirthday\b/.test(lower);
   const kind = hasTime ? "event" : "todo";
+  const resolved = guessResolve(text);
   return {
     title: text.replace(/\b(tomorrow|today|at|on|my)\b/gi, "").trim().slice(0, 60) || text,
-    kind,
-    datetime: kind === "event" ? new Date().toISOString() : null,
+    kind: resolved ? "event" : kind,
+    datetime: resolved ? resolved.datetime : kind === "event" ? new Date().toISOString() : null,
+    allDay: resolved ? resolved.allDay : false,
     reminder: null
   };
 }
@@ -207,6 +291,21 @@ function clock(dt: string | null): string {
   if (!dt) return "";
   const d = new Date(dt);
   return isNaN(d.getTime()) ? "" : d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+// Shared preview label: "📅 Buy milk · Wed, Sep 9 · all day".
+function previewText(g: ParsedItem): string {
+  const icon = g.kind === "event" ? "📅" : "☑";
+  let tail = "";
+  if (g.datetime) tail = " · " + (g.allDay ? `${dateLabel(g.datetime)} · all day` : clock(g.datetime));
+  return `${icon} ${esc(g.title)}${tail}`;
+}
+function dateLabel(iso: string): string {
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? "" : d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+}
+function fmtAmPm(hhmm: string): string {
+  const [hh, mm] = hhmm.split(":").map(Number);
+  return `${String(((hh + 11) % 12) + 1).padStart(2, "0")}:${String(mm).padStart(2, "0")} ${hh >= 12 ? "PM" : "AM"}`;
 }
 function toLocalInput(dt: string | null): string {
   if (!dt) return "";
@@ -381,11 +480,7 @@ export function mountViews(): void {
     const phrase = el<HTMLInputElement>("#phrase");
     if (pBox && pText && phrase && pBox.classList.contains("show")) {
       const txt = phrase.value.trim();
-      if (txt) {
-        const g = guess(txt);
-        const mark = g.kind === "event" ? "[E]" : "[ ]";
-        pText.textContent = `${mark} ${esc(g.title)}${g.datetime ? " · " + formatClock(g.datetime) : ""}`;
-      }
+      if (txt) pText.textContent = previewText(guess(txt));
     }
   });
 
