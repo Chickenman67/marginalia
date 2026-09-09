@@ -652,3 +652,35 @@ main { flex: 1; padding: 18px 22px 150px; }
 .confirm-row .cf-allday { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #5a564c; }
 .confirm-actions { display: flex; gap: 8px; }
 .confirm-actions .btn { padding: 7px 14px; }
+
+/* --- Mobile (≤520px): compact writing bar + 2-line clamped titles --- */
+@media (max-width: 520px) {
+  .card .title,
+  .card.todo .title {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    white-space: normal;
+  }
+  .card.expanded .title {
+    display: block;
+    -webkit-line-clamp: unset;
+    overflow: visible;
+  }
+  .dock-inner { padding: 10px 12px; }
+  .dock-head { margin-bottom: 8px; }
+  .bar input { padding: 10px 12px; border-radius: 11px; }
+  .bar .mic,
+  .dictate-bar .mic { width: 42px; height: 42px; font-size: 17px; }
+  #quickAdd { padding: 10px 13px; }
+}
+
+/* --- Touch (coarse pointer): dock shrinks to a compact row while scrolling --- */
+@media (pointer: coarse) {
+  body.dock-min .dock-head,
+  body.dock-min .hint { display: none; }
+  body.dock-min .dock-inner { padding: 8px 12px; border-radius: 14px; }
+  body.dock-min .bar input { padding: 8px 12px; }
+  body.dock-min .mic { width: 36px; height: 36px; font-size: 15px; }
+}
