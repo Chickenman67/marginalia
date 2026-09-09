@@ -8,6 +8,7 @@ import { starSymbolHTML } from "./ui/views";
 import type { Item } from "./types";
 import { onAuthChange } from "./auth";
 import { mountAuthScreen, unmountAuthScreen } from "./ui/authScreen";
+import { nextDockMin } from "./ui/dockCollapse";
 
 const authRoot = document.getElementById("authRoot")!;
 const appRoot = document.getElementById("appRoot")!;
@@ -38,6 +39,22 @@ async function bootApp() {
     new ResizeObserver(fit).observe(dock);
     window.addEventListener("resize", fit);
   }
+
+  // Mobile scroll-collapse (coarse pointer): shrink the dock to a compact row
+  // while scrolling down, restore on scroll up. Never collapses mid-type.
+  let dockMin = false;
+  let lastScrollY = window.scrollY;
+  let rafId = 0;
+  const applyDockMin = () => {
+    const focusedInDock = !!dock && dock.contains(document.activeElement);
+    dockMin = nextDockMin(dockMin, window.scrollY, lastScrollY, focusedInDock);
+    lastScrollY = window.scrollY;
+    document.body.classList.toggle("dock-min", dockMin);
+  };
+  window.addEventListener("scroll", () => {
+    cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(applyDockMin);
+  }, { passive: true });
 
   subscribe((items: Item[]) => resetNotified(items.map((i) => i.id)));
   setInterval(() => subscribe((items: Item[]) => fireNotifications(items)), 30000);
