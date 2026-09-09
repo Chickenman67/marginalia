@@ -3,6 +3,7 @@ node_modules
 .env.*
 dist
 supabase/.temp
+.worktrees/
 opencode.json
 
 # controller-only helper script (not part of the app)
