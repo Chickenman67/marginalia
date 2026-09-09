@@ -292,11 +292,12 @@ function todoCardHTML(i: Item, opts: { selectable?: boolean; selected?: boolean 
   const sel = opts.selectable
     ? `<input type="checkbox" class="sel" ${opts.selected ? "checked" : ""} aria-label="Select ${esc(i.title)}" />`
     : "";
-  return `<div class="card todo ${i.status === "done" ? "done" : ""} ${opts.selected ? "selected" : ""}" data-id="${i.id}"${accentAttr}>
+  const expanded = expandedTitle(i.id);
+  return `<div class="card todo ${i.status === "done" ? "done" : ""} ${opts.selected ? "selected" : ""} ${expanded ? "expanded" : ""}" data-id="${i.id}"${accentAttr}>
     ${sel}
     <input type="checkbox" class="check" ${i.status === "done" ? "checked" : ""} aria-label="Complete ${esc(i.title)}" />
     <div class="body">
-      <div class="title">${esc(i.title)}</div>
+      <div class="title" tabindex="0" role="button" aria-expanded="${expanded}">${esc(i.title)}</div>
       <div class="meta">
         <span class="badge todo">todo</span>
         ${starHTML(i.rating, i.id)}
@@ -325,11 +326,12 @@ function eventCardHTML(i: Item, opts: { selectable?: boolean; selected?: boolean
   const pin = opts.showPin === false
     ? ""
     : `<button type="button" class="pin-btn ${i.pinned ? "on" : ""}" title="${i.pinned ? "Unpin" : "Pin"}">${i.pinned ? "📌" : "📍"}</button>`;
-  return `<div class="card ${i.status === "done" ? "done" : ""} ${isPast ? "past" : ""} ${opts.selected ? "selected" : ""}" data-id="${i.id}"${accentAttr}>
+  const expanded = expandedTitle(i.id);
+  return `<div class="card ${i.status === "done" ? "done" : ""} ${isPast ? "past" : ""} ${opts.selected ? "selected" : ""} ${expanded ? "expanded" : ""}" data-id="${i.id}"${accentAttr}>
     ${sel}
     <input type="checkbox" class="check" ${i.status === "done" ? "checked" : ""} aria-label="Complete ${esc(i.title)}" />
     <div class="body">
-      <div class="title">${esc(i.title)}</div>
+      <div class="title" tabindex="0" role="button" aria-expanded="${expanded}">${esc(i.title)}</div>
       <div class="meta">
         <span class="badge ${i.kind}">${i.kind}</span>
         ${time}
@@ -386,6 +388,21 @@ export function bindCardEvents(
       togglePin(id);
     };
   });
+  root.querySelectorAll<HTMLElement>(".card .title").forEach((t) => {
+    const toggle = () => {
+      const card = t.closest<HTMLElement>(".card");
+      const id = card?.dataset.id;
+      if (!card || !id) return;
+      const next = !expandedTitle(id);
+      setExpandedTitle(id, next);
+      card.classList.toggle("expanded", next);
+      t.setAttribute("aria-expanded", String(next));
+    };
+    t.addEventListener("click", toggle);
+    t.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); }
+    });
+  });
 }
 
 export function groupByDay(items: Item[], selectable = false, cardOpts: { showPin?: boolean } = {}): string {
@@ -403,4 +420,13 @@ export function groupByDay(items: Item[], selectable = false, cardOpts: { showPi
 }
 export function esc(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+}
+
+const expandedTitles = new Set<string>();
+export function setExpandedTitle(id: string, expanded: boolean): void {
+  if (expanded) expandedTitles.add(id);
+  else expandedTitles.delete(id);
+}
+export function expandedTitle(id: string): boolean {
+  return expandedTitles.has(id);
 }

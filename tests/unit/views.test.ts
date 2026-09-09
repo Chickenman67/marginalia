@@ -113,7 +113,7 @@ describe("cardHTML — todo matches Schedule height", () => {
 
   it("renders title inside .body on line 1", () => {
     const html = cardHTML(todo());
-    expect(html).toMatch(/<div class="body">\s*<div class="title">T<\/div>/);
+    expect(html).toMatch(/<div class="body">\s*<div class="title"[^>]*>T<\/div>/);
   });
 
   it("renders the badge inside .meta on line 2", () => {
