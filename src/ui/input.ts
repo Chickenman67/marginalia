@@ -576,17 +576,27 @@ export function mountViews(): void {
   function showEditModal(item: Item) {
     const modal = document.createElement("div");
     modal.className = "back show";
-    const dateVal = item.datetime ? toLocalInput(item.datetime).slice(0, 10) : "";
-    const timeVal = item.datetime ? toLocalInput(item.datetime).slice(11) : "";
+    
+    let isEvent = item.kind === "event";
+    let pickedDate = item.datetime ? item.datetime.slice(0, 10) : new Date().toISOString().slice(0, 10);
+    let pickedTime = item.datetime ? item.datetime.slice(11, 16) : "09:00";
+    let allDay = item.all_day;
+
+    const fmtDate = (iso: string) => new Date(iso + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+    const fmtTime = (hhmm: string) => {
+        const [hh, mm] = hhmm.split(":").map(Number);
+        return getSettings().militaryTime ? hhmm : `${String(((hh + 11) % 12) + 1).padStart(2, "0")}:${String(mm).padStart(2, "0")} ${hh >= 12 ? "PM" : "AM"}`;
+    };
+
     modal.innerHTML = `
       <div class="modal">
         <h2>Edit Item</h2>
         <input type="text" id="editTitle" value="${esc(item.title)}" placeholder="Title" />
-        <label><input type="checkbox" id="editIsEvent" ${item.kind === "event" ? "checked" : ""} /> Schedule as event</label>
-        <div id="editDateTimeFields" ${item.kind === "event" ? "" : "hidden"}>
-          <input type="date" id="editDate" value="${dateVal}" />
-          <input type="time" id="editTime" value="${timeVal}" />
-          <label><input type="checkbox" id="editAllDay" ${item.all_day ? "checked" : ""} /> All day</label>
+        <button type="button" class="btn" id="editToggleKind">${isEvent ? "Schedule as todo" : "Schedule as event"}</button>
+        <div id="editDateTimeFields" ${isEvent ? "" : "hidden"}>
+          <button type="button" class="picker-trigger" id="editDate">${fmtDate(pickedDate)}</button>
+          <button type="button" class="picker-trigger" id="editTime" ${allDay ? "hidden" : ""}>${fmtTime(pickedTime)}</button>
+          <label><input type="checkbox" id="editAllDay" ${allDay ? "checked" : ""} /> All day</label>
         </div>
         <div class="row">
           <button class="btn" id="editCancel">Cancel</button>
@@ -597,14 +607,31 @@ export function mountViews(): void {
     document.body.appendChild(modal);
     
     const titleInp = modal.querySelector<HTMLInputElement>("#editTitle")!;
-    const isEventCb = modal.querySelector<HTMLInputElement>("#editIsEvent")!;
+    const toggleKindBtn = modal.querySelector<HTMLButtonElement>("#editToggleKind")!;
     const dateTimeFields = modal.querySelector<HTMLElement>("#editDateTimeFields")!;
-    const dateInp = modal.querySelector<HTMLInputElement>("#editDate")!;
-    const timeInp = modal.querySelector<HTMLInputElement>("#editTime")!;
+    const dateTrigger = modal.querySelector<HTMLButtonElement>("#editDate")!;
+    const timeTrigger = modal.querySelector<HTMLButtonElement>("#editTime")!;
     const allDayCb = modal.querySelector<HTMLInputElement>("#editAllDay")!;
     
-    isEventCb.onchange = () => {
-      dateTimeFields.hidden = !isEventCb.checked;
+    toggleKindBtn.onclick = () => {
+      isEvent = !isEvent;
+      toggleKindBtn.textContent = isEvent ? "Schedule as todo" : "Schedule as event";
+      dateTimeFields.hidden = !isEvent;
+    };
+
+    dateTrigger.onclick = () => openCalendar(dateTrigger, pickedDate, (iso) => {
+      pickedDate = iso;
+      dateTrigger.textContent = fmtDate(iso);
+    });
+
+    timeTrigger.onclick = () => {
+      (window as any).__marginaliaMilitary = getSettings().militaryTime;
+      openTimePicker(timeTrigger, pickedTime, (t) => { pickedTime = t; timeTrigger.textContent = fmtTime(t); });
+    };
+
+    allDayCb.onchange = () => {
+      allDay = allDayCb.checked;
+      timeTrigger.hidden = allDay;
     };
     
     modal.querySelector("#editCancel")!.addEventListener("click", () => modal.remove());
@@ -612,14 +639,14 @@ export function mountViews(): void {
       const newTitle = titleInp.value.trim();
       if (!newTitle) return;
       
-      const kind = isEventCb.checked ? "event" : "todo";
+      const kind = isEvent ? "event" : "todo";
       let datetime: string | null = null;
       let all_day = false;
       
-      if (kind === "event" && dateInp.value) {
-        const timeStr = allDayCb.checked ? "00:00" : (timeInp.value || "09:00");
-        datetime = localToISO(`${dateInp.value}T${timeStr}`);
-        all_day = allDayCb.checked;
+      if (kind === "event") {
+        const timeStr = allDay ? "00:00" : (pickedTime || "09:00");
+        datetime = localToISO(`${pickedDate}T${timeStr}`);
+        all_day = allDay;
       }
       
       await editItem(item.id, { title: newTitle, kind, datetime, all_day, reminder: item.reminder });
