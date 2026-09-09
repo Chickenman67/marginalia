@@ -620,6 +620,13 @@ export function mountViews(): void {
       isEvent = !isEvent;
       toggleKindBtn.textContent = isEvent ? "Schedule as todo" : "Schedule as event";
       dateTimeFields.hidden = !isEvent;
+      if (!isEvent) {
+          // Clear time/date when switching to todo
+          pickedDate = new Date().toISOString().slice(0, 10);
+          pickedTime = "09:00";
+          dateTrigger.textContent = fmtDate(pickedDate);
+          timeTrigger.textContent = fmtTime(pickedTime);
+      }
     };
 
     dateTrigger.onclick = () => openCalendar(dateTrigger, pickedDate, (iso) => {
