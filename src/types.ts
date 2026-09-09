@@ -13,6 +13,7 @@ export interface Item {
   order: number;
   pinned: boolean;
   rating: number; // 0 = no rating; otherwise one of 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5
+  deleted_at: string | null; // ISO 8601 when soft-deleted; null for active items
 }
 
 // Shape returned by the LLM proxy / parser.

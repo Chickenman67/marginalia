@@ -41,8 +41,12 @@ Maintained by the agent as they surface. Standing rule: keep this section update
 - **No re-entering keys**: any user-set API key persists in browser localStorage.
 - **Architecture defaults** (from `/wayfinder` map `.scratch/schedule-app/`): default LLM = NVIDIA via server-side Supabase Edge Function proxy (holds key, adds CORS, rate-limits; free + unlimited but slow), with Google Gemini / Groq as user-selectable fallback keys. Sync = Supabase free tier, RLS keyed on space token, no accounts.
 
-### Live deployment status (2026-08-25)
-- Supabase project `PROJECT_REF` (us-east-1) is wired: schema + token-keyed RLS applied (`supabase/migrations/0001_init.sql`), NVIDIA secret set, `parse` Edge Function deployed and verified.
+### Live deployment status (2026-09-08)
+- Supabase project `PROJECT_REF` (us-east-1) is wired: schema + token-keyed RLS applied, NVIDIA secret set, `parse` + `polish` Edge Functions deployed and verified (verify_jwt false; CORS set).
+- **Rate limiter caveat:** `public.check_rate_limit` EXECUTE is granted to `service_role` only — the Edge Functions must talk to it via a service-role admin client (`SUPABASE_SERVICE_ROLE_KEY`), NOT the anon-key user-JWT client (that silently 429s every authorized call). Both functions now fail loudly (500) if that key is missing. If rate limiting "breaks everything," check: (1) service-role key set in project secrets, (2) functions deployed from `main`.
+- **Key-sync migration:** `supabase/migrations/20260908215934_sync_api_keys.sql` adds `llm_key`/`llm_provider` to `profiles` (plaintext — personal tool, RLS-scoped; encryption deferred). Settings reads/writes these; localStorage is the fallback when the profile fetch fails.
+- Deterministic date resolution shipped 2026-09-08: bare weekday → all-day event on next occurrence (confirm card); time-of-day phrase ("by morning") → confirmable timed event; explicit cues (clock/today/tomorrow/next+weekday/month-day/"in X minutes") bypass confirm. Core in `src/dates.ts` (`resolveSchedule`/`applyResolve`), unit-tested.
+- Mobile ergonomics shipped 2026-09-08: titles clamp to 2 lines ≤520px with tap-to-enter key (Enter/Space, `aria-expanded`), compact writing bar, and a `body.dock-min` scroll-collapse on coarse-pointer devices; desktop ≥521px unchanged. CSS in `src/style.css` (tail media blocks), JS in `src/ui/views.ts` + `src/ui/dockCollapse.ts`, unit-tested; verified via Playwright on a phone viewport.
 - App builds with `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON` (in `.env`, gitignored) → synced mode; without them → demo (localStorage) mode.
 - One-time remaining step: deploy `dist/` to a free static host (Netlify/Vercel/Cloudflare Pages) for the public demo URL.
 - When running `supabase` CLI commands, the project ref is `PROJECT_REF`.

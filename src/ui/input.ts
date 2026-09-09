@@ -1,4 +1,4 @@
-import { addItem, subscribe, deleteItem, setItems } from "../store";
+import { addItem, subscribe, deleteItem, setItems, restoreItem, permanentlyDeleteItem, editItem } from "../store";
 import { parsePhrase, polishPhrase, updateItem } from "../supabase";
 import { createSpeech } from "../speech";
 import { cardHTML, bindCardEvents, groupByDay, esc, applyViewV2, starClickValue, type ScheduleState, type TodosState, type DueState } from "./views";
@@ -334,9 +334,11 @@ export function mountViews(): void {
   const vSched = el<HTMLDivElement>("#view-schedule");
   const vTodo = el<HTMLDivElement>("#view-todos");
   const vDue = el<HTMLDivElement>("#view-due");
+  const vDeleted = el<HTMLDivElement>("#view-deleted");
   const cSched = el<HTMLSpanElement>("#cSched");
   const cTodo = el<HTMLSpanElement>("#cTodo");
   const cDue = el<HTMLSpanElement>("#cDue");
+  const cDeleted = el<HTMLSpanElement>("#cDeleted");
 
   document.querySelectorAll<HTMLButtonElement>(".tab").forEach((t) => {
     t.onclick = () => {
@@ -345,7 +347,8 @@ export function mountViews(): void {
       vSched.hidden = t.dataset.view !== "schedule";
       vTodo.hidden = t.dataset.view !== "todos";
       vDue.hidden = t.dataset.view !== "due";
-      activeTab = t.dataset.view as "schedule" | "todos" | "due";
+      vDeleted.hidden = t.dataset.view !== "deleted";
+      activeTab = t.dataset.view as "schedule" | "todos" | "due" | "deleted";
       pinnedRatings = new Map();
       if (activeTab === "todos") {
         for (const it of latestItems) {
@@ -366,7 +369,7 @@ export function mountViews(): void {
   // can be called more than once (e.g. on auth state change), so we wipe any
   // previously injected children first — otherwise 4 "Filter & sort" pills
   // pile up in each view.
-  for (const v of [vSched, vTodo, vDue]) {
+  for (const v of [vSched, vTodo, vDue, vDeleted]) {
     v.querySelectorAll(".view-bar, .view-cards").forEach((c) => c.remove());
     const bar = document.createElement("div");
     bar.className = "view-bar";
@@ -489,20 +492,23 @@ export function mountViews(): void {
       const live = new Set(items.map((i) => i.id));
       for (const id of [...pinnedRatings.keys()]) if (!live.has(id)) pinnedRatings.delete(id);
     }
+    const activeItems = items.filter((i) => !i.deleted_at);
+    const deletedItems = items.filter((i) => !!i.deleted_at);
+    
     const events = applyViewV2(
-      items.filter((i) => i.kind === "event"),
+      activeItems.filter((i) => i.kind === "event"),
       scheduleState,
       new Map()
     );
     const todos = applyViewV2(
-      items.filter((i) => i.kind === "todo"),
+      activeItems.filter((i) => i.kind === "todo"),
       todosState,
       pinnedRatings
     );
     // For the due view, the spec excludes done items. Show anything with a
     // reminder or a future datetime — applyViewV2's "week" branch decides if
     // it actually matches the active window.
-    const dueNotDone = items.filter((i) => i.status !== "done" && (i.reminder || i.datetime));
+    const dueNotDone = activeItems.filter((i) => i.status !== "done" && (i.reminder || i.datetime));
     const dueShown = applyViewV2(
       dueNotDone,
       dueState,
@@ -512,23 +518,121 @@ export function mountViews(): void {
     cSched.textContent = String(events.filter((i) => i.status !== "done").length || "");
     cTodo.textContent = String(todos.filter((i) => i.status !== "done").length || "");
     cDue.textContent = String(dueShown.length || "");
+    cDeleted.textContent = String(deletedItems.length || "");
 
     const schedCards = vSched.querySelector<HTMLElement>(".view-cards")!;
     const todoCards = vTodo.querySelector<HTMLElement>(".view-cards")!;
     const dueCards = vDue.querySelector<HTMLElement>(".view-cards")!;
+    const deletedCards = vDeleted.querySelector<HTMLElement>(".view-cards")!;
     schedCards.innerHTML = events.length ? groupByDay(events, selectable, { showPin: false }) : `<div class="empty">Nothing scheduled. Speak or type to add one.</div>`;
     todoCards.innerHTML = todos.length ? todos.map((i) => cardHTML(i, { selectable, selected: selected.has(i.id), showPin: false })).join("") : `<div class="empty">No todos. Add one below.</div>`;
     dueCards.innerHTML = dueShown.length ? dueShown.map((i) => cardHTML(i, { selectable, selected: selected.has(i.id), showPin: false })).join("") : `<div class="empty">Nothing due right now.</div>`;
+    
+    const settings = getSettings();
+    if (settings.showDeleted) {
+      deletedCards.innerHTML = deletedItems.length ? deletedItems.map((i) => {
+        const daysAgo = i.deleted_at ? Math.floor((Date.now() - new Date(i.deleted_at).getTime()) / 86400000) : 0;
+        return `<div class="card deleted" data-id="${i.id}">
+          <div class="body">
+            <div class="title">${esc(i.title)}</div>
+            <div class="meta"><span class="badge">${daysAgo} day${daysAgo === 1 ? '' : 's'} ago</span></div>
+          </div>
+          <button class="restore" title="Restore" aria-label="Restore ${esc(i.title)}">↩️</button>
+          <button class="del-permanent" title="Delete permanently" aria-label="Delete permanently ${esc(i.title)}">❌</button>
+        </div>`;
+      }).join("") : `<div class="empty">No deleted items.</div>`;
+      
+      deletedCards.querySelectorAll<HTMLButtonElement>(".restore").forEach((b) => {
+        b.onclick = () => {
+          const id = (b.closest(".card") as HTMLElement).dataset.id!;
+          void restoreItem(id);
+        };
+      });
+      deletedCards.querySelectorAll<HTMLButtonElement>(".del-permanent").forEach((b) => {
+        b.onclick = () => {
+          const id = (b.closest(".card") as HTMLElement).dataset.id!;
+          if (confirm("Permanently delete this item? This cannot be undone.")) {
+            void permanentlyDeleteItem(id);
+          }
+        };
+      });
+    } else {
+      deletedCards.innerHTML = `<div class="empty">Deleted items are hidden. Enable in settings.</div>`;
+    }
+
+    const handleEdit = (id: string) => {
+      const item = latestItems.find((i) => i.id === id);
+      if (!item) return;
+      showEditModal(item);
+    };
 
     const selCtx = { selected, onChange: updateSelToolbar };
-    bindCardEvents(schedCards, undefined, selCtx);
-    bindCardEvents(todoCards, undefined, selCtx);
-    bindCardEvents(dueCards, undefined, selCtx);
+    bindCardEvents(schedCards, undefined, handleEdit, selCtx);
+    bindCardEvents(todoCards, undefined, handleEdit, selCtx);
+    bindCardEvents(dueCards, undefined, handleEdit, selCtx);
     bindStarEvents(todoCards, latestItems);
+  }
+  
+  function showEditModal(item: Item) {
+    const modal = document.createElement("div");
+    modal.className = "back show";
+    const dateVal = item.datetime ? toLocalInput(item.datetime).slice(0, 10) : "";
+    const timeVal = item.datetime ? toLocalInput(item.datetime).slice(11) : "";
+    modal.innerHTML = `
+      <div class="modal">
+        <h2>Edit Item</h2>
+        <input type="text" id="editTitle" value="${esc(item.title)}" placeholder="Title" />
+        <label><input type="checkbox" id="editIsEvent" ${item.kind === "event" ? "checked" : ""} /> Schedule as event</label>
+        <div id="editDateTimeFields" ${item.kind === "event" ? "" : "hidden"}>
+          <input type="date" id="editDate" value="${dateVal}" />
+          <input type="time" id="editTime" value="${timeVal}" />
+          <label><input type="checkbox" id="editAllDay" ${item.all_day ? "checked" : ""} /> All day</label>
+        </div>
+        <div class="row">
+          <button class="btn" id="editCancel">Cancel</button>
+          <button class="btn primary" id="editSave">Save</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    
+    const titleInp = modal.querySelector<HTMLInputElement>("#editTitle")!;
+    const isEventCb = modal.querySelector<HTMLInputElement>("#editIsEvent")!;
+    const dateTimeFields = modal.querySelector<HTMLElement>("#editDateTimeFields")!;
+    const dateInp = modal.querySelector<HTMLInputElement>("#editDate")!;
+    const timeInp = modal.querySelector<HTMLInputElement>("#editTime")!;
+    const allDayCb = modal.querySelector<HTMLInputElement>("#editAllDay")!;
+    
+    isEventCb.onchange = () => {
+      dateTimeFields.hidden = !isEventCb.checked;
+    };
+    
+    modal.querySelector("#editCancel")!.addEventListener("click", () => modal.remove());
+    modal.querySelector("#editSave")!.addEventListener("click", async () => {
+      const newTitle = titleInp.value.trim();
+      if (!newTitle) return;
+      
+      const kind = isEventCb.checked ? "event" : "todo";
+      let datetime: string | null = null;
+      let all_day = false;
+      
+      if (kind === "event" && dateInp.value) {
+        const timeStr = allDayCb.checked ? "00:00" : (timeInp.value || "09:00");
+        datetime = localToISO(`${dateInp.value}T${timeStr}`);
+        all_day = allDayCb.checked;
+      }
+      
+      await editItem(item.id, { title: newTitle, kind, datetime, all_day, reminder: item.reminder });
+      modal.remove();
+    });
+    
+    modal.onclick = (e) => {
+      if (e.target === modal) modal.remove();
+    };
   }
 }
 
-let activeTab: "schedule" | "todos" | "due" = "schedule";
+let activeTab: "schedule" | "todos" | "due" | "deleted" = "schedule";
 let pinnedRatings: Map<string, number> = new Map();
 
 // --- Manual Schedule entry with a calendar popover + time picker ---

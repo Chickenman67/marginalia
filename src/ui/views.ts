@@ -303,6 +303,7 @@ function todoCardHTML(i: Item, opts: { selectable?: boolean; selected?: boolean 
         ${starHTML(i.rating, i.id)}
       </div>
     </div>
+    <button class="edit" title="Edit" aria-label="Edit ${esc(i.title)}">✏️</button>
     <button class="del" title="Delete" aria-label="Delete ${esc(i.title)}">🗑</button>
   </div>`;
 }
@@ -339,6 +340,7 @@ function eventCardHTML(i: Item, opts: { selectable?: boolean; selected?: boolean
       </div>
     </div>
     ${pin}
+    <button class="edit" title="Edit" aria-label="Edit ${esc(i.title)}">✏️</button>
     <button class="del" title="Delete" aria-label="Delete ${esc(i.title)}">🗑</button>
   </div>`;
 }
@@ -346,6 +348,7 @@ function eventCardHTML(i: Item, opts: { selectable?: boolean; selected?: boolean
 export function bindCardEvents(
   root: HTMLElement,
   onDelete: (id: string) => void = (id) => deleteItem(id),
+  onEdit?: (id: string) => void,
   selCtx?: { selected: Set<string>; onChange: () => void }
 ) {
   // Accent border color is applied via the CSSOM (not an inline style attribute)
@@ -363,6 +366,12 @@ export function bindCardEvents(
     d.onclick = () => {
       const id = (d.closest(".card") as HTMLElement).dataset.id!;
       onDelete(id);
+    };
+  });
+  root.querySelectorAll<HTMLButtonElement>(".edit").forEach((e) => {
+    e.onclick = () => {
+      const id = (e.closest(".card") as HTMLElement).dataset.id!;
+      if (onEdit) onEdit(id);
     };
   });
   if (selCtx) {

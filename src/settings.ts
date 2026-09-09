@@ -21,6 +21,8 @@ export interface Settings {
   pastDueColor: string;
   llmKey?: string;
   llmProvider?: string;
+  showDeleted: boolean;
+  deletedAutoCleanupDays: number;
 }
 
 let cache: Settings | null = null;
@@ -55,7 +57,9 @@ export async function loadSettings(): Promise<Settings> {
       dueDaysAhead: p.due_days_ahead ?? 7,
       pastDueColor: p.past_due_color ?? defaults().pastDueColor,
       llmKey: p.llm_key ?? undefined,
-      llmProvider: p.llm_provider ?? "nvidia"
+      llmProvider: p.llm_provider ?? "nvidia",
+      showDeleted: p.show_deleted ?? true,
+      deletedAutoCleanupDays: p.deleted_auto_cleanup_days ?? 30
     };
   } catch {
     cache = defaults();
@@ -73,7 +77,9 @@ export function defaults(): Settings {
     browserNotifications: false,
     dueIncludeOverdue: true,
     dueDaysAhead: 7,
-    pastDueColor: "#b4452f"
+    pastDueColor: "#b4452f",
+    showDeleted: true,
+    deletedAutoCleanupDays: 30
   };
 }
 
@@ -100,7 +106,9 @@ export async function updateSettings(patch: Partial<Settings>): Promise<void> {
     dueDaysAhead: "due_days_ahead",
     pastDueColor: "past_due_color",
     llmKey: "llm_key",
-    llmProvider: "llm_provider"
+    llmProvider: "llm_provider",
+    showDeleted: "show_deleted",
+    deletedAutoCleanupDays: "deleted_auto_cleanup_days"
   };
   const profilePatch: Record<string, any> = {};
   for (const [k, v] of Object.entries(patch)) {

@@ -52,7 +52,8 @@ export async function importItems(rows: ImportRow[], mode: "merge" | "replace"):
     created_at: new Date().toISOString(),
     order: 0,
     pinned: false,
-    rating: 0
+    rating: 0,
+    deleted_at: null
   });
   const built = rows.map(toItem);
   if (demoMode) {
@@ -91,7 +92,8 @@ export async function addItem(parsed: ParsedItem): Promise<void> {
     created_at: new Date().toISOString(),
     order: Date.now(),
     pinned: false,
-    rating: 0
+    rating: 0,
+    deleted_at: null
   };
   if (demoMode) {
     items = [...items, item].sort(byOrder);
@@ -120,6 +122,35 @@ export async function toggleDone(id: string): Promise<void> {
 }
 
 export async function deleteItem(id: string): Promise<void> {
+  const it = items.find((x) => x.id === id);
+  if (!it) return;
+  const deleted_at = new Date().toISOString();
+  if (demoMode) {
+    items = items.map((x) => (x.id === id ? { ...x, deleted_at } : x));
+    emit();
+    persist();
+    return;
+  }
+  await updateItem(id, { deleted_at });
+  items = items.map((x) => (x.id === id ? { ...x, deleted_at } : x));
+  emit();
+}
+
+export async function restoreItem(id: string): Promise<void> {
+  const it = items.find((x) => x.id === id);
+  if (!it) return;
+  if (demoMode) {
+    items = items.map((x) => (x.id === id ? { ...x, deleted_at: null } : x));
+    emit();
+    persist();
+    return;
+  }
+  await updateItem(id, { deleted_at: null });
+  items = items.map((x) => (x.id === id ? { ...x, deleted_at: null } : x));
+  emit();
+}
+
+export async function permanentlyDeleteItem(id: string): Promise<void> {
   if (demoMode) {
     items = items.filter((x) => x.id !== id);
     emit();
@@ -180,4 +211,41 @@ export async function deleteOldEvents(days: number): Promise<void> {
   }
   if (demoMode) { items.sort(byOrder); emit(); persist(); }
   else emit();
+}
+
+export async function cleanupDeletedItems(days: number): Promise<void> {
+  const cutoff = Date.now() - days * 86400_000;
+  const toCleanup = items.filter((i) => i.deleted_at && new Date(i.deleted_at).getTime() < cutoff);
+  for (const it of toCleanup) {
+    if (demoMode) {
+      items = items.filter((x) => x.id !== it.id);
+    } else {
+      await removeItem(it.id);
+      items = items.filter((x) => x.id !== it.id);
+    }
+  }
+  if (demoMode) { items.sort(byOrder); emit(); persist(); }
+  else emit();
+}
+
+export function getActiveItems(): Item[] {
+  return items.filter((i) => !i.deleted_at);
+}
+
+export function getDeletedItems(): Item[] {
+  return items.filter((i) => !!i.deleted_at);
+}
+
+export async function editItem(id: string, updates: Partial<Pick<Item, 'title' | 'datetime' | 'all_day' | 'reminder' | 'kind'>>): Promise<void> {
+  const it = items.find((x) => x.id === id);
+  if (!it) return;
+  if (demoMode) {
+    items = items.map((x) => (x.id === id ? { ...x, ...updates } : x));
+    emit();
+    persist();
+    return;
+  }
+  await updateItem(id, updates);
+  items = items.map((x) => (x.id === id ? { ...x, ...updates } : x));
+  emit();
 }

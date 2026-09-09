@@ -98,7 +98,7 @@ main { flex: 1; padding: 18px 22px 150px; }
 .check:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
 .card .body { flex: 1; min-width: 0; }
-.card .title { font-weight: 500; font-size: 15.5px; }
+.card .title { font-weight: 500; font-size: 15.5px; overflow-wrap: break-word; word-break: break-word; }
 .card .meta { font-size: 13px; color: var(--muted); margin-top: 3px; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
 .badge { font-size: 11px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; padding: 2px 8px; border-radius: 6px; }
 .badge.event { color: var(--event); background: var(--event-soft); }
@@ -106,13 +106,14 @@ main { flex: 1; padding: 18px 22px 150px; }
 .badge.allday { color: var(--muted); background: #efeae0; }
 .remind { color: var(--event); }
 
-.del {
+.del, .edit {
   appearance: none; border: none; background: none; cursor: pointer; flex: none; align-self: center;
   color: var(--faint); width: 30px; height: 30px; border-radius: 8px; font-size: 16px;
   transition: background .15s, color .15s;
 }
 .del:hover { background: #f4e7e2; color: var(--danger); }
-.del:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.edit:hover { background: #e7ede9; color: var(--todo); }
+.del:focus-visible, .edit:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
 .empty { color: var(--faint); text-align: center; padding: 48px 10px; font-style: italic; font-family: "Fraunces", serif; }
 
@@ -575,12 +576,23 @@ main { flex: 1; padding: 18px 22px 150px; }
 
 /* Hidden views: their [hidden] attribute MUST win over .view-bar display:flex,
    otherwise the schedule view shows 4 "Filter & sort" pills stacked up. */
-#view-schedule[hidden], #view-todos[hidden], #view-due[hidden] { display: none !important; }
+#view-schedule[hidden], #view-todos[hidden], #view-due[hidden], #view-deleted[hidden] { display: none !important; }
+
+/* Deleted items styling */
+.card.deleted { opacity: .75; background: #faf8f3; }
+.restore, .del-permanent {
+  appearance: none; border: none; background: none; cursor: pointer; flex: none; align-self: center;
+  color: var(--faint); width: 30px; height: 30px; border-radius: 8px; font-size: 16px;
+  transition: background .15s, color .15s;
+}
+.restore:hover { background: #e7ede9; color: var(--todo); }
+.del-permanent:hover { background: #f4e7e2; color: var(--danger); }
+.restore:focus-visible, .del-permanent:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
 /* todo card matches Schedule card height — title on line 1, badge+stars on line 2 */
 .card.todo { padding: 12px 16px; gap: 14px; align-items: center; }
 .card.todo .body { min-width: 0; }
-.card.todo .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; }
+.card.todo .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; overflow-wrap: break-word; word-break: break-word; }
 .card.todo .meta { gap: 8px 10px; flex-wrap: nowrap; }
 .card.todo .stars { flex: 0 0 auto; }
 

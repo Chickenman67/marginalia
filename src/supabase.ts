@@ -45,6 +45,8 @@ export interface Profile {
   past_due_color: string | null;
   llm_key: string | null;
   llm_provider: string;
+  show_deleted: boolean;
+  deleted_auto_cleanup_days: number;
   updated_at: string;
 }
 

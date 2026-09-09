@@ -1,5 +1,5 @@
 import "./style.css";
-import { loadItems, subscribeRealtime, subscribe, deleteOldEvents } from "./store";
+import { loadItems, subscribeRealtime, subscribe, deleteOldEvents, cleanupDeletedItems } from "./store";
 import { getSettings, loadSettings } from "./settings";
 import { mountHeader } from "./ui/header";
 import { mountInput, mountViews } from "./ui/input";
@@ -27,6 +27,7 @@ async function bootApp() {
   const runAutoDelete = () => {
     const s = getSettings();
     if (s.autoDelete) deleteOldEvents(s.autoDeleteDays);
+    cleanupDeletedItems(s.deletedAutoCleanupDays);
   };
   runAutoDelete();
   setInterval(runAutoDelete, 5 * 60 * 1000);

@@ -142,6 +142,8 @@ export async function mountHeader(): Promise<void> {
     (document.getElementById("autoDeleteDays") as HTMLInputElement).value = String(s.autoDeleteDays);
     (document.getElementById("setDueIncludeOverdue") as HTMLInputElement).checked = s.dueIncludeOverdue;
     (document.getElementById("setDueDaysAhead") as HTMLInputElement).value = String(s.dueDaysAhead);
+    (document.getElementById("setShowDeleted") as HTMLInputElement).checked = s.showDeleted;
+    (document.getElementById("deletedAutoCleanupDays") as HTMLInputElement).value = String(s.deletedAutoCleanupDays);
     pastDueColor.value = s.pastDueColor;
     keyStatus.textContent = "";
     keyStatus.className = "key-status";
@@ -172,6 +174,8 @@ export async function mountHeader(): Promise<void> {
       autoDeleteDays: Math.max(1, Number((document.getElementById("autoDeleteDays") as HTMLInputElement).value) || 30),
       dueIncludeOverdue: (document.getElementById("setDueIncludeOverdue") as HTMLInputElement).checked,
       dueDaysAhead: Math.max(1, Math.min(365, Number((document.getElementById("setDueDaysAhead") as HTMLInputElement).value) || 7)),
+      showDeleted: (document.getElementById("setShowDeleted") as HTMLInputElement).checked,
+      deletedAutoCleanupDays: Math.max(1, Number((document.getElementById("deletedAutoCleanupDays") as HTMLInputElement).value) || 30),
       pastDueColor: pastDueColor.value
     };
     const wantsNotify = setNotify.checked;
