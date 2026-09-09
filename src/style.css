@@ -300,6 +300,37 @@ main { flex: 1; padding: 18px 22px 150px; }
 .rules-head .muted { font-weight: 400; color: var(--faint); }
 #colorRules { display: grid; gap: 7px; margin-bottom: 9px; }
 
+.edit-dt-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+.all-day-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 10px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  white-space: nowrap;
+  background: var(--panel);
+  transition: background .15s, border-color .15s;
+}
+.all-day-toggle:has(input:checked) {
+  border-color: var(--ink);
+  background: var(--paper);
+  font-weight: 600;
+}
+.all-day-toggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--ink);
+  margin: 0;
+}
+
 /* Past-due color row — match the rule row layout so the picker sits flush
    with the rules below it. */
 .past-due-row {

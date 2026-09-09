@@ -593,10 +593,13 @@ export function mountViews(): void {
         <h2>Edit Item</h2>
         <input type="text" id="editTitle" value="${esc(item.title)}" placeholder="Title" />
         <button type="button" class="btn" id="editToggleKind">${isEvent ? "Schedule as todo" : "Schedule as event"}</button>
-        <div id="editDateTimeFields" ${isEvent ? "" : "hidden"}>
+        <div id="editDateTimeFields" class="edit-dt-row" ${isEvent ? "" : "hidden"}>
           <button type="button" class="picker-trigger" id="editDate">${fmtDate(pickedDate)}</button>
           <button type="button" class="picker-trigger" id="editTime" ${allDay ? "hidden" : ""}>${fmtTime(pickedTime)}</button>
-          <label><input type="checkbox" id="editAllDay" ${allDay ? "checked" : ""} /> All day</label>
+          <label class="all-day-toggle">
+            <input type="checkbox" id="editAllDay" ${allDay ? "checked" : ""} />
+            <span>All day</span>
+          </label>
         </div>
         <div class="row">
           <button class="btn" id="editCancel">Cancel</button>
