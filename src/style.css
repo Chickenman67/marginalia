@@ -27,6 +27,7 @@ body {
   font-size: 15px; line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+  overscroll-behavior-y: none;
 }
 
 /* Custom scrollbar: a slim, warm thumb that reads as part of the paper theme
