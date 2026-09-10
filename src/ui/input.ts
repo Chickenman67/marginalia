@@ -578,26 +578,19 @@ export function mountViews(): void {
     modal.className = "back show";
     
     let isEvent = item.kind === "event";
-      let pickedDate: string;
-      let pickedTime: string;
+        let pickedDate: string;
+        let pickedTime: string;
 
-      if (item.datetime) {
-          if (item.datetime.length <= 10) {
-              pickedDate = item.datetime;
-              pickedTime = "09:00";
-          } else {
-              const dtObj = new Date(item.datetime);
-              const pad = (n: number) => String(n).padStart(2, '0');
-              pickedDate = `${dtObj.getFullYear()}-${pad(dtObj.getMonth() + 1)}-${pad(dtObj.getDate())}`;
-              pickedTime = `${pad(dtObj.getHours())}:${pad(dtObj.getMinutes())}`;
-          }
-      } else {
-          const dtObj = new Date();
-          const pad = (n: number) => String(n).padStart(2, '0');
-          pickedDate = `${dtObj.getFullYear()}-${pad(dtObj.getMonth() + 1)}-${pad(dtObj.getDate())}`;
-          pickedTime = "09:00";
-      }
-      let allDay = item.all_day;
+        if (item.datetime) {
+            pickedDate = item.datetime.slice(0, 10);
+            pickedTime = item.datetime.length > 10 ? item.datetime.slice(11, 16) : "09:00";
+        } else {
+            const dtObj = new Date();
+            const pad = (n: number) => String(n).padStart(2, '0');
+            pickedDate = `${dtObj.getFullYear()}-${pad(dtObj.getMonth() + 1)}-${pad(dtObj.getDate())}`;
+            pickedTime = "09:00";
+        }
+        let allDay = item.all_day;
 
     const fmtDate = (iso: string) => new Date(iso + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
     const fmtTime = (hhmm: string) => {
