@@ -808,7 +808,8 @@ export function bindStarEvents(host: HTMLElement, items: Item[]) {
       if (host.querySelector(".card.selected")) return;
       const te = e as TouchEvent;
       const touch = te.touches[0];
-      handleMove(touch.clientX, touch.clientY);
+      const targetUnderFinger = document.elementFromPoint(touch.clientX, touch.clientY);
+      handleMove(touch.clientX, touch.clientY, targetUnderFinger);
     }, { passive: true });
 
     const finishDrag = (e: Event) => {
