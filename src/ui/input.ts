@@ -738,7 +738,9 @@ export function starHoverValue(pos: number, offsetX: number, starWidth: number):
 export function bindStarEvents(host: HTMLElement, items: Item[]) {
   host.querySelectorAll<HTMLElement>(".stars").forEach((row) => {
     let isDragging = false;
+    let wasDragged = false;
     let lastValue = 0;
+    let startX = 0;
     
     const updateHover = (clientX: number, clientY: number, targetEl?: Element | null): number => {
       if (host.querySelector(".card.selected")) return 0;
@@ -767,37 +769,28 @@ export function bindStarEvents(host: HTMLElement, items: Item[]) {
     
     const handleMove = (clientX: number, clientY: number, targetEl?: Element | null) => {
       const value = updateHover(clientX, clientY, targetEl);
-      if (isDragging && value > 0 && value !== lastValue) {
-        lastValue = value;
-        const id = row.dataset.item!;
-        const it = items.find((x) => x.id === id);
-        if (it) {
-          void setRating(id, value, items);
-        }
+      if (isDragging) {
+         if (Math.abs(clientX - startX) > 5) wasDragged = true;
+         if (value > 0) lastValue = value;
       }
     };
-    
-    row.addEventListener("mouseleave", () => {
-      isDragging = false;
-      if (row.dataset.hover !== undefined) delete row.dataset.hover;
-    });
     
     row.addEventListener("mousedown", (e) => {
       if (host.querySelector(".card.selected")) return;
       isDragging = true;
+      wasDragged = false;
       const me = e as MouseEvent;
+      startX = me.clientX;
       lastValue = updateHover(me.clientX, me.clientY);
-    });
-    
-    row.addEventListener("mouseup", () => {
-      isDragging = false;
     });
     
     row.addEventListener("touchstart", (e) => {
       if (host.querySelector(".card.selected")) return;
       isDragging = true;
+      wasDragged = false;
       const te = e as TouchEvent;
       const touch = te.touches[0];
+      startX = touch.clientX;
       lastValue = updateHover(touch.clientX, touch.clientY);
     }, { passive: true });
     
@@ -807,11 +800,22 @@ export function bindStarEvents(host: HTMLElement, items: Item[]) {
       const touch = te.touches[0];
       handleMove(touch.clientX, touch.clientY);
     }, { passive: true });
-    
-    row.addEventListener("touchend", () => {
+
+    const finishDrag = (e: Event) => {
+      if (isDragging && wasDragged && lastValue > 0) {
+        if (e.cancelable) e.preventDefault(); // suppress native click if dragging
+        const id = row.dataset.item!;
+        const it = items.find((x) => x.id === id);
+        if (it && it.rating !== lastValue) void setRating(id, lastValue, items);
+      }
       isDragging = false;
+      wasDragged = false;
       if (row.dataset.hover !== undefined) delete row.dataset.hover;
-    });
+    };
+    
+    row.addEventListener("mouseup", finishDrag);
+    row.addEventListener("touchend", (e) => { finishDrag(e); }, { passive: false });
+    row.addEventListener("mouseleave", finishDrag);
     
     row.querySelectorAll<HTMLElement>(".star").forEach((starEl) => {
       starEl.addEventListener("mousemove", (e) => {
