@@ -54,6 +54,8 @@ describe("user menu header", () => {
           <input type="number" id="autoDeleteDays" min="1" value="30" />
           <input type="checkbox" id="setDueIncludeOverdue" />
           <input type="number" id="setDueDaysAhead" min="1" value="7" />
+          <input type="checkbox" id="setShowDeleted" />
+          <input type="number" id="deletedAutoCleanupDays" min="1" value="30" />
           <span id="keyStatus" class="key-status"></span>
           <button id="keyTest" type="button"></button>
           <button id="settingsCancel" type="button"></button>
