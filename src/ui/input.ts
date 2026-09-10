@@ -593,7 +593,7 @@ export function mountViews(): void {
         <h2>Edit Item</h2>
         <input type="text" id="editTitle" value="${esc(item.title)}" placeholder="Title" />
         <button type="button" class="btn" id="editToggleKind">${isEvent ? "Schedule as todo" : "Schedule as event"}</button>
-        <div id="editDateTimeFields" class="edit-dt-row" ${isEvent ? "" : "hidden"}>
+        <div id="editDateTimeFields" class="edit-dt-row" style="display: ${isEvent ? "flex" : "none"}">
           <button type="button" class="picker-trigger" id="editDate">${fmtDate(pickedDate)}</button>
           <button type="button" class="picker-trigger" id="editTime" ${allDay ? "hidden" : ""}>${fmtTime(pickedTime)}</button>
           <label class="all-day-toggle">
@@ -619,7 +619,7 @@ export function mountViews(): void {
     toggleKindBtn.onclick = () => {
       isEvent = !isEvent;
       toggleKindBtn.textContent = isEvent ? "Schedule as todo" : "Schedule as event";
-      dateTimeFields.hidden = !isEvent;
+      dateTimeFields.style.display = isEvent ? "flex" : "none";
       if (!isEvent) {
           // Clear time/date when switching to todo
           pickedDate = new Date().toISOString().slice(0, 10);
