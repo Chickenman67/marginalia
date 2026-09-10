@@ -578,9 +578,26 @@ export function mountViews(): void {
     modal.className = "back show";
     
     let isEvent = item.kind === "event";
-    let pickedDate = item.datetime ? item.datetime.slice(0, 10) : new Date().toISOString().slice(0, 10);
-    let pickedTime = item.datetime ? item.datetime.slice(11, 16) : "09:00";
-    let allDay = item.all_day;
+      let pickedDate: string;
+      let pickedTime: string;
+
+      if (item.datetime) {
+          if (item.datetime.length <= 10) {
+              pickedDate = item.datetime;
+              pickedTime = "09:00";
+          } else {
+              const dtObj = new Date(item.datetime);
+              const pad = (n: number) => String(n).padStart(2, '0');
+              pickedDate = `${dtObj.getFullYear()}-${pad(dtObj.getMonth() + 1)}-${pad(dtObj.getDate())}`;
+              pickedTime = `${pad(dtObj.getHours())}:${pad(dtObj.getMinutes())}`;
+          }
+      } else {
+          const dtObj = new Date();
+          const pad = (n: number) => String(n).padStart(2, '0');
+          pickedDate = `${dtObj.getFullYear()}-${pad(dtObj.getMonth() + 1)}-${pad(dtObj.getDate())}`;
+          pickedTime = "09:00";
+      }
+      let allDay = item.all_day;
 
     const fmtDate = (iso: string) => new Date(iso + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
     const fmtTime = (hhmm: string) => {
@@ -620,13 +637,6 @@ export function mountViews(): void {
       isEvent = !isEvent;
       toggleKindBtn.textContent = isEvent ? "Schedule as todo" : "Schedule as event";
       dateTimeFields.style.display = isEvent ? "flex" : "none";
-      if (!isEvent) {
-          // Clear time/date when switching to todo
-          pickedDate = new Date().toISOString().slice(0, 10);
-          pickedTime = "09:00";
-          dateTrigger.textContent = fmtDate(pickedDate);
-          timeTrigger.textContent = fmtTime(pickedTime);
-      }
     };
 
     dateTrigger.onclick = () => openCalendar(dateTrigger, pickedDate, (iso) => {
