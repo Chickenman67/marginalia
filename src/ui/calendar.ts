@@ -176,12 +176,30 @@ export function openTimePicker(trigger: HTMLElement, initial: string, onPicked: 
     // The selected value is the item under the CENTERED highlight band (the wheel
     // snaps items to center), not the item at the top of the viewport. Compute and
     // align on the centered item so the stored value matches what the user sees.
-    const scrollForValue = (v: number) => (padN + v) * rowH() + rowH() / 2 - host.clientHeight / 2;
+    const centerH = () => host.clientHeight / 2 - rowH() / 2;
+    const scrollForValue = (v: number) => {
+      // If initialized or at exact top (initial state), set to the middle of the loop
+      if (host.scrollTop === 0) {
+        const middleBlock = Math.floor(loopCount / 2);
+        return (padN + middleBlock * count + v) * rowH() - centerH();
+      }
+      // Otherwise, snap to nearest instance
+      const currentI = Math.round((host.scrollTop - centerH()) / rowH()) - padN;
+      let currentV = ((currentI % count) + count) % count;
+      let diff = v - currentV;
+      if (diff > count / 2) diff -= count;
+      if (diff < -count / 2) diff += count;
+      return (padN + currentI + diff) * rowH() - centerH();
+    };
     const centeredValue = (): number => {
       const i = Math.round((host.scrollTop + host.clientHeight / 2 - rowH() / 2) / rowH()) - padN;
       return ((i % count) + count) % count;
     };
-    requestAnimationFrame(() => { host.scrollTop = scrollForValue(cur); });
+    requestAnimationFrame(() => {
+      host.scrollTop = scrollForValue(cur);
+      // Ensure the readout triggers to paint initial preview
+      readout();
+    });
     host.addEventListener("scroll", () => {
       const v = centeredValue();
       onPick(v);
