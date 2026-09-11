@@ -294,6 +294,59 @@ describe("style.css — weekday + todo sizing", () => {
   });
 });
 
+describe("past-event date display", () => {
+  // Build an event with its LOCAL calendar day set to `n` days ago at 9:00 AM so
+  // the stored UTC ISO string can land on a different UTC calendar day without
+  // changing the LOCAL day (mirrors real storage: item.datetime is UTC ISO).
+  function eventNDaysAgo(n: number): Item {
+    const d = new Date();
+    d.setDate(d.getDate() - n);
+    d.setHours(9, 0, 0, 0);
+    return mkItem("Past-" + n, d.toISOString());
+  }
+
+  it("groups a past event under its past day label, not Today", () => {
+    const item = eventNDaysAgo(5);
+    const html = groupByDay([item]);
+    // Past events beyond yesterday render their month+day ("September 6"); only
+    // FUTURE events 2-7 days out get the plain weekday name.
+    const expected = new Date(item.datetime!).toLocaleDateString(undefined, { month: "long", day: "numeric" });
+    expect(html).toContain(`<div class="day-label">${expected}</div>`);
+    expect(html).toContain(new Date(item.datetime!).toLocaleDateString(undefined, { weekday: "short" }));
+    expect(html).not.toContain(">Today<");
+    expect(html).not.toContain(">Tomorrow<");
+  });
+
+  it("labels a 1-day-past event as Yesterday", () => {
+    const html = groupByDay([eventNDaysAgo(1)]);
+    expect(html).toContain('class="day-label">Yesterday</div>');
+  });
+
+  it("shows the past date (month + day), not today's, for a far-past event", () => {
+    const item = eventNDaysAgo(10);
+    const past = new Date(item.datetime!);
+    const expectedLabel = past.toLocaleDateString(undefined, { month: "long", day: "numeric" });
+    const html = groupByDay([item]);
+    expect(html).toContain(`<div class="day-label">${expectedLabel}</div>`);
+    // The card itself renders the past date's weekday, not today's (10 days ago
+    // is always a different weekday than today).
+    expect(html).toContain(`<span class="weekday">${past.toLocaleDateString(undefined, { weekday: "short" })}</span>`);
+    expect(html).not.toContain(`<span class="weekday">${new Date().toLocaleDateString(undefined, { weekday: "short" })}</span>`);
+  });
+
+  it("groups a late-evening local event under its LOCAL day despite next-day UTC storage", () => {
+    const d = new Date();
+    d.setDate(d.getDate() - 2);
+    d.setHours(23, 0, 0, 0); // 11 PM local — its UTC ISO may be next-day UTC
+    const item = mkItem("Late", d.toISOString());
+    const local = new Date(item.datetime!);
+    const expected = local.toLocaleDateString(undefined, { month: "long", day: "numeric" });
+    const html = groupByDay([item]);
+    expect(html).toContain(`<div class="day-label">${expected}</div>`);
+    expect(html).not.toContain(">Today<");
+  });
+});
+
 describe("groupByDay", () => {
   it("does not render a pin button when showPin: false", () => {
     const items: Item[] = [
