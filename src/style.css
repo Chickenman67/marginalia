@@ -75,7 +75,7 @@ header .tag { font-size: 12.5px; color: var(--muted); }
 .tab[aria-selected="true"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--ink); }
 .tab .count { font-size: 11px; color: var(--faint); margin-left: 5px; font-weight: 500; }
 
-main { flex: 1; padding: 18px 22px 150px; }
+main { flex: 1; padding: 18px 22px 150px; overscroll-behavior-y: contain; }
 .day-label { font-family: "Fraunces", serif; font-weight: 500; font-size: 14px; color: var(--muted); margin: 18px 2px 8px; }
 .day-label:first-child { margin-top: 4px; }
 
