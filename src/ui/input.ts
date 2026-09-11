@@ -582,8 +582,15 @@ export function mountViews(): void {
         let pickedTime: string;
 
         if (item.datetime) {
-            pickedDate = item.datetime.slice(0, 10);
-            pickedTime = item.datetime.length > 10 ? item.datetime.slice(11, 16) : "09:00";
+            const pad = (n: number) => String(n).padStart(2, '0');
+            if (item.datetime.length <= 10) {
+                pickedDate = item.datetime;
+                pickedTime = "09:00";
+            } else {
+                const dtObj = new Date(item.datetime);
+                pickedDate = `${dtObj.getFullYear()}-${pad(dtObj.getMonth() + 1)}-${pad(dtObj.getDate())}`;
+                pickedTime = `${pad(dtObj.getHours())}:${pad(dtObj.getMinutes())}`;
+            }
         } else {
             const dtObj = new Date();
             const pad = (n: number) => String(n).padStart(2, '0');
