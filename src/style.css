@@ -697,11 +697,11 @@ main { flex: 1; padding: 18px 22px 150px; }
 .confirm-actions { display: flex; gap: 8px; }
 .confirm-actions .btn { padding: 7px 14px; }
 
-/* Ensure titles always clamp to two lines desktop & mobile */
+/* Ensure titles always clamp to four lines desktop & mobile */
 .card .title,
 .card.todo .title {
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
   white-space: normal;
@@ -714,7 +714,23 @@ main { flex: 1; padding: 18px 22px 150px; }
   overflow: visible;
 }
 
-/* --- Mobile (≤520px): compact writing bar + 2-line clamped titles --- */
+/* Expand indicator: reveal on hover while collapsed, always show when expanded */
+.card .title::after {
+  content: ' ▼';
+  font-size: 0.7em;
+  color: var(--faint);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.card .title:hover::after {
+  opacity: 1;
+}
+.card.expanded .title::after {
+  content: ' ▲';
+  opacity: 1;
+}
+
+/* --- Mobile (≤520px): compact writing bar + 4-line clamped titles --- */
 @media (max-width: 520px) {
   .dock-inner { padding: 10px 12px; }
   .dock-head { margin-bottom: 8px; }

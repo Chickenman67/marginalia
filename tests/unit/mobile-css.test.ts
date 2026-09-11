@@ -17,10 +17,10 @@ describe("mobile CSS — writing bar", () => {
 });
 
 describe("mobile CSS — title clamp", () => {
-  it("clamps mobile titles to 2 lines, including todo cards", () => {
+  it("clamps mobile titles to 4 lines, including todo cards", () => {
     const rule = css.match(/\.card\s+\.title\s*,\s*\.card\.todo\s+\.title\s*\{([^}]*)\}/)?.[1] ?? "";
     expect(rule, "expected a .card .title, .card.todo .title rule").toBeTruthy();
-    expect(rule).toMatch(/-webkit-line-clamp:\s*2/);
+    expect(rule).toMatch(/-webkit-line-clamp:\s*4/);
     expect(rule).toMatch(/white-space:\s*normal/);
   });
   it("un-clamps .expanded titles", () => {
