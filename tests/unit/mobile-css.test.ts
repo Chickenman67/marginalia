@@ -28,6 +28,27 @@ describe("mobile CSS — title clamp", () => {
   });
 });
 
+describe("todo titles are never single-line ellipsized", () => {
+  it("has no nowrap rule for .card.todo .title", () => {
+    expect(css).not.toMatch(/\.card\.todo\s+\.title\s*\{[^}]*white-space:\s*nowrap/);
+  });
+  it("has no text-overflow clip rule for .card.todo .title", () => {
+    expect(css).not.toMatch(/\.card\.todo\s+\.title\s*\{[^}]*text-overflow:\s*ellipsis/);
+  });
+  it("clamp rule is the winning (last) .card.todo .title rule in the sheet", () => {
+    const blocks = [...css.matchAll(/\.card\.todo\s+\.title\s*\{([^}]*)\}/g)].map((m) => m[1]);
+    const last = blocks[blocks.length - 1] ?? "";
+    expect(last).toMatch(/white-space:\s*normal/);
+    expect(last).toMatch(/-webkit-line-clamp:\s*4/);
+  });
+});
+
+describe("overscroll kill-switch", () => {
+  it("applies overscroll-behavior-y: none on html as well as body", () => {
+    expect(css).toMatch(/html\s*\{[^}]*overscroll-behavior-y:\s*none/);
+  });
+});
+
 describe("coarse-pointer scroll collapse", () => {
   it("hides the dock-head and hint when body.dock-min", () => {
     expect(css).toMatch(/body\.dock-min\s+\.dock-head\s*,/);
