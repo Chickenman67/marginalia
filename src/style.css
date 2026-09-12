@@ -714,7 +714,7 @@ main { flex: 1; padding: 18px 22px 150px; overscroll-behavior-y: contain; }
   overflow: visible;
 }
 
-/* Expand indicator: reveal on hover while collapsed, always show when expanded */
+/* Expand indicator: only on titles that are actually clamped (cut off); always visible there */
 .card .title::after {
   content: ' ▼';
   font-size: 0.7em;
@@ -722,7 +722,7 @@ main { flex: 1; padding: 18px 22px 150px; overscroll-behavior-y: contain; }
   opacity: 0;
   transition: opacity 0.15s;
 }
-.card .title:hover::after {
+.card .title.can-expand::after {
   opacity: 1;
 }
 .card.expanded .title::after {

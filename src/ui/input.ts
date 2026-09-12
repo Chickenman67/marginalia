@@ -1,7 +1,7 @@
 import { addItem, subscribe, deleteItem, setItems, restoreItem, permanentlyDeleteItem, editItem } from "../store";
 import { parsePhrase, polishPhrase, updateItem } from "../supabase";
 import { createSpeech } from "../speech";
-import { cardHTML, bindCardEvents, groupByDay, esc, applyViewV2, starClickValue, type ScheduleState, type TodosState, type DueState } from "./views";
+import { cardHTML, bindCardEvents, groupByDay, esc, applyViewV2, applyTitleExpandability, starClickValue, type ScheduleState, type TodosState, type DueState } from "./views";
 import { mountFilterPanel } from "./filterPanel";
 import { openCalendar, openTimePicker } from "./calendar";
 import { getSettings, subscribeSettings } from "../settings";
@@ -556,6 +556,7 @@ export function mountViews(): void {
           }
         };
       });
+      applyTitleExpandability(deletedCards);
     } else {
       deletedCards.innerHTML = `<div class="empty">Deleted items are hidden. Enable in settings.</div>`;
     }
@@ -721,6 +722,15 @@ form.addEventListener("submit", async (e) => {
   if (!iso) return;
   await addItem({ title, kind: "event", datetime: iso, reminder: null });
   el<HTMLInputElement>("#evTitle").value = "";
+});
+
+// Re-classify title expansion on resize (e.g. phone rotation changes the clamp).
+let resizeT: number | undefined;
+window.addEventListener("resize", () => {
+  window.clearTimeout(resizeT);
+  resizeT = window.setTimeout(() => {
+    document.querySelectorAll<HTMLElement>(".view-cards").forEach((el) => applyTitleExpandability(el));
+  }, 150);
 });
 
 async function setRating(id: string, rating: number, items: Item[]) {

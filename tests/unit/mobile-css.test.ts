@@ -43,6 +43,15 @@ describe("todo titles are never single-line ellipsized", () => {
   });
 });
 
+describe("expand indicator gated to clamped titles", () => {
+  it("always shows the ▼ on titles that can expand (.can-expand)", () => {
+    expect(css).toMatch(/\.card\s+\.title\.can-expand::after\s*\{[^}]*opacity:\s*1/);
+  });
+  it("does not reveal the indicator on hover for every title", () => {
+    expect(css).not.toMatch(/\.card\s+\.title:hover/);
+  });
+});
+
 describe("overscroll kill-switch", () => {
   it("applies overscroll-behavior-y: none on html as well as body", () => {
     expect(css).toMatch(/html\s*\{[^}]*overscroll-behavior-y:\s*none/);

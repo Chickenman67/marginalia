@@ -12,29 +12,29 @@ function mkItem(o: Partial<Item> = {}): Item {
   };
 }
 
-function render(i: Item): HTMLElement {
+function render(i: Item, clamped = true): HTMLElement {
   const root = document.createElement("div");
   root.innerHTML = cardHTML(i);
-  bindCardEvents(root);
+  bindCardEvents(root, undefined, undefined, undefined, () => clamped);
   return root;
 }
 
 describe("expanded-title state", () => {
   beforeEach(() => { setExpandedTitle("a", false); setExpandedTitle("e", false); });
 
-  it("renders collapsed by default with aria-expanded=false", () => {
-    const root = render(mkItem({ id: "a" }));
+  it("renders collapsed by default with no button semantics on the title", () => {
+    const root = render(mkItem({ id: "a" }), false);
     const title = root.querySelector<HTMLElement>(".title")!;
     expect(root.querySelector(".card")!.classList.contains("expanded")).toBe(false);
-    expect(title.getAttribute("aria-expanded")).toBe("false");
-    expect(title.getAttribute("role")).toBe("button");
+    expect(title.hasAttribute("aria-expanded")).toBe(false);
+    expect(title.hasAttribute("role")).toBe(false);
+    expect(title.hasAttribute("tabindex")).toBe(false);
   });
 
-  it("renders the expanded class + aria-expanded=true when set expanded", () => {
+  it("renders the expanded class when set expanded", () => {
     setExpandedTitle("a", true);
     const root = render(mkItem({ id: "a" }));
     expect(root.querySelector(".card")!.classList.contains("expanded")).toBe(true);
-    expect(root.querySelector<HTMLElement>(".title")!.getAttribute("aria-expanded")).toBe("true");
   });
 
   it("applies to event cards too", () => {
@@ -43,8 +43,16 @@ describe("expanded-title state", () => {
     expect(root.querySelector(".card")!.classList.contains("expanded")).toBe(true);
   });
 
-  it("clicking the title toggles expand and updates aria-expanded", () => {
-    const root = render(mkItem({ id: "a" }));
+  it("only makes a clamped title interactive (role button + aria-expanded=false)", () => {
+    const root = render(mkItem({ id: "a" }), true);
+    const title = root.querySelector<HTMLElement>(".title")!;
+    expect(title.classList.contains("can-expand")).toBe(true);
+    expect(title.getAttribute("role")).toBe("button");
+    expect(title.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("clicking a clamped title toggles expand and updates aria-expanded", () => {
+    const root = render(mkItem({ id: "a" }), true);
     const title = root.querySelector<HTMLElement>(".title")!;
     title.click();
     expect(expandedTitle("a")).toBe(true);
@@ -56,7 +64,7 @@ describe("expanded-title state", () => {
   });
 
   it("toggles on Enter and Space for keyboard users", () => {
-    const root = render(mkItem({ id: "a" }));
+    const root = render(mkItem({ id: "a" }), true);
     const title = root.querySelector<HTMLElement>(".title")!;
     title.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     expect(expandedTitle("a")).toBe(true);
@@ -65,9 +73,34 @@ describe("expanded-title state", () => {
   });
 
   it("does not affect the done checkbox", () => {
-    const root = render(mkItem({ id: "a" }));
+    const root = render(mkItem({ id: "a" }), true);
     const check = root.querySelector<HTMLInputElement>(".check")!;
     root.querySelector<HTMLElement>(".title")!.click();
     expect(check.checked).toBe(false);
+  });
+
+  it("leaves titles that are not cut off non-interactive", () => {
+    const root = render(mkItem({ id: "a" }), false);
+    const title = root.querySelector<HTMLElement>(".title")!;
+    expect(title.classList.contains("can-expand")).toBe(false);
+    expect(title.hasAttribute("role")).toBe(false);
+    expect(title.hasAttribute("tabindex")).toBe(false);
+    expect(title.hasAttribute("aria-expanded")).toBe(false);
+    title.click();
+    expect(expandedTitle("a")).toBe(false);
+    expect(root.querySelector(".card")!.classList.contains("expanded")).toBe(false);
+  });
+
+  it("drops the affordance when an expanded title is collapsed and no longer clamped", () => {
+    setExpandedTitle("a", true);
+    const root = render(mkItem({ id: "a" }), false);
+    const title = root.querySelector<HTMLElement>(".title")!;
+    expect(title.classList.contains("can-expand")).toBe(true);
+    expect(title.getAttribute("aria-expanded")).toBe("true");
+    title.click();
+    expect(expandedTitle("a")).toBe(false);
+    expect(title.hasAttribute("role")).toBe(false);
+    expect(title.hasAttribute("aria-expanded")).toBe(false);
+    expect(title.classList.contains("can-expand")).toBe(false);
   });
 });

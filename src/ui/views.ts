@@ -297,7 +297,7 @@ function todoCardHTML(i: Item, opts: { selectable?: boolean; selected?: boolean 
     ${sel}
     <input type="checkbox" class="check" ${i.status === "done" ? "checked" : ""} aria-label="Complete ${esc(i.title)}" />
     <div class="body">
-      <div class="title" tabindex="0" role="button" aria-expanded="${expanded}">${esc(i.title)}</div>
+      <div class="title">${esc(i.title)}</div>
       <div class="meta">
         <span class="badge todo">todo</span>
         ${starHTML(i.rating, i.id)}
@@ -332,7 +332,7 @@ function eventCardHTML(i: Item, opts: { selectable?: boolean; selected?: boolean
     ${sel}
     <input type="checkbox" class="check" ${i.status === "done" ? "checked" : ""} aria-label="Complete ${esc(i.title)}" />
     <div class="body">
-      <div class="title" tabindex="0" role="button" aria-expanded="${expanded}">${esc(i.title)}</div>
+      <div class="title">${esc(i.title)}</div>
       <div class="meta">
         <span class="badge ${i.kind}">${i.kind}</span>
         ${time}
@@ -349,7 +349,8 @@ export function bindCardEvents(
   root: HTMLElement,
   onDelete: (id: string) => void = (id) => deleteItem(id),
   onEdit?: (id: string) => void,
-  selCtx?: { selected: Set<string>; onChange: () => void }
+  selCtx?: { selected: Set<string>; onChange: () => void },
+  isClamped: (t: HTMLElement) => boolean = measureClamped
 ) {
   // Accent border color is applied via the CSSOM (not an inline style attribute)
   // so it survives a strict Content-Security-Policy that forbids inline styles.
@@ -397,21 +398,7 @@ export function bindCardEvents(
       togglePin(id);
     };
   });
-  root.querySelectorAll<HTMLElement>(".card .title").forEach((t) => {
-    const toggle = () => {
-      const card = t.closest<HTMLElement>(".card");
-      const id = card?.dataset.id;
-      if (!card || !id) return;
-      const next = !expandedTitle(id);
-      setExpandedTitle(id, next);
-      card.classList.toggle("expanded", next);
-      t.setAttribute("aria-expanded", String(next));
-    };
-    t.addEventListener("click", toggle);
-    t.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); }
-    });
-  });
+  applyTitleExpandability(root, isClamped);
 }
 
 export function groupByDay(items: Item[], selectable = false, cardOpts: { showPin?: boolean } = {}): string {
@@ -438,4 +425,58 @@ export function setExpandedTitle(id: string, expanded: boolean): void {
 }
 export function expandedTitle(id: string): boolean {
   return expandedTitles.has(id);
+}
+
+// A title is "cut off" when the clamped box (clientHeight) can't show all of the
+// text (scrollHeight). Only such titles may be expanded.
+export function measureClamped(title: HTMLElement): boolean {
+  return title.scrollHeight > title.clientHeight + 1;
+}
+
+const titleToggles = new WeakMap<HTMLElement, () => void>();
+
+function stripExpandable(title: HTMLElement): void {
+  const card = title.closest<HTMLElement>(".card");
+  const id = card?.dataset.id;
+  title.classList.remove("can-expand");
+  title.removeAttribute("role");
+  title.removeAttribute("tabindex");
+  title.removeAttribute("aria-expanded");
+  if (id && expandedTitle(id)) setExpandedTitle(id, false);
+}
+
+// Classify every title as expandable (only when its text is actually clamped, or
+// the user currently has it expanded) or plain text. Re-runs safely on the same
+// element (e.g. after a resize) — handlers are bound once via titleToggles.
+export function applyTitleExpandability(root: HTMLElement, isClamped: (t: HTMLElement) => boolean = measureClamped): void {
+  root.querySelectorAll<HTMLElement>(".card .title").forEach((t) => {
+    const card = t.closest<HTMLElement>(".card");
+    const id = card?.dataset.id;
+    const alreadyExpanded = !!card?.classList.contains("expanded");
+    if (!isClamped(t) && !alreadyExpanded) {
+      stripExpandable(t);
+      return;
+    }
+    t.classList.add("can-expand");
+    t.setAttribute("role", "button");
+    t.setAttribute("tabindex", "0");
+    t.setAttribute("aria-expanded", String(alreadyExpanded));
+    if (!card || !id) return;
+    const toggle = titleToggles.get(t) ?? (() => {
+      const next = !card.classList.contains("expanded");
+      card.classList.toggle("expanded", next);
+      t.setAttribute("aria-expanded", String(next));
+      if (next) setExpandedTitle(id, true);
+      else if (!isClamped(t)) stripExpandable(t);
+      else setExpandedTitle(id, false);
+    });
+    titleToggles.set(t, toggle);
+    if (!t.dataset.expandBound) {
+      t.dataset.expandBound = "1";
+      t.addEventListener("click", toggle);
+      t.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); }
+      });
+    }
+  });
 }
