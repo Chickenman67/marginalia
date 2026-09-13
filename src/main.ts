@@ -34,7 +34,8 @@ async function bootApp() {
 
   const dock = document.querySelector<HTMLElement>(".dock");
   const main = document.querySelector<HTMLElement>("main");
-  if (dock && main) {
+  const app = document.querySelector<HTMLElement>(".app");
+  if (dock && main && app) {
     const fit = () => { main.style.paddingBottom = `${dock.offsetHeight + 24}px`; };
     fit();
     new ResizeObserver(fit).observe(dock);
@@ -44,18 +45,24 @@ async function bootApp() {
   // Mobile scroll-collapse (coarse pointer): shrink the dock to a compact row
   // while scrolling down, restore on scroll up. Never collapses mid-type.
   let dockMin = false;
-  let lastScrollY = window.scrollY;
+  let lastScrollY = 0;
   let rafId = 0;
+  if (dock && app) {
+    lastScrollY = app.scrollTop;
+  }
   const applyDockMin = () => {
-    const focusedInDock = !!dock && dock.contains(document.activeElement);
-    dockMin = nextDockMin(dockMin, window.scrollY, lastScrollY, focusedInDock);
-    lastScrollY = window.scrollY;
+    if (!dock || !app) return;
+    const focusedInDock = dock.contains(document.activeElement);
+    dockMin = nextDockMin(dockMin, app.scrollTop, lastScrollY, focusedInDock);
+    lastScrollY = app.scrollTop;
     document.body.classList.toggle("dock-min", dockMin);
   };
-  window.addEventListener("scroll", () => {
-    cancelAnimationFrame(rafId);
-    rafId = requestAnimationFrame(applyDockMin);
-  }, { passive: true });
+  if (app) {
+    app.addEventListener("scroll", () => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(applyDockMin);
+    }, { passive: true });
+  }
 
   subscribe((items: Item[]) => resetNotified(items.map((i) => i.id)));
   setInterval(() => subscribe((items: Item[]) => fireNotifications(items)), 30000);

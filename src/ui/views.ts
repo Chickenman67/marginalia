@@ -7,7 +7,7 @@ export const STAR_POLYGON = "12,2 14.85,8.5 22,9.3 16.5,14 18,21 12,17.3 6,21 7.
 export const STAR_EMPTY_FILL = "#8a7d63";
 
 export function starSymbolHTML(): string {
-  return `<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  return `<svg width="0" height="0" class="svg-defs" aria-hidden="true">
     <defs>
       <symbol id="${STAR_SYMBOL_ID}" viewBox="0 0 24 24">
         <polygon points="${STAR_POLYGON}"/>

@@ -611,7 +611,7 @@ export function mountViews(): void {
         <h2>Edit Item</h2>
         <input type="text" id="editTitle" value="${esc(item.title)}" placeholder="Title" />
         <button type="button" class="btn" id="editToggleKind">${isEvent ? "Schedule as todo" : "Schedule as event"}</button>
-        <div id="editDateTimeFields" class="edit-dt-row" style="display: ${isEvent ? "flex" : "none"}">
+        <div id="editDateTimeFields" class="edit-dt-row${isEvent ? "" : " hidden"}">
           <button type="button" class="picker-trigger" id="editDate">${fmtDate(pickedDate)}</button>
           <button type="button" class="picker-trigger" id="editTime" ${allDay ? "hidden" : ""}>${fmtTime(pickedTime)}</button>
           <label class="all-day-toggle">
@@ -637,7 +637,7 @@ export function mountViews(): void {
     toggleKindBtn.onclick = () => {
       isEvent = !isEvent;
       toggleKindBtn.textContent = isEvent ? "Schedule as todo" : "Schedule as event";
-      dateTimeFields.style.display = isEvent ? "flex" : "none";
+      dateTimeFields.classList.toggle("hidden", !isEvent);
     };
 
     dateTrigger.onclick = () => openCalendar(dateTrigger, pickedDate, (iso) => {

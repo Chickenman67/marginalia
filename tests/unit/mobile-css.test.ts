@@ -58,6 +58,30 @@ describe("overscroll kill-switch", () => {
   });
 });
 
+describe("dedicated app scroll container", () => {
+  const rule = css.match(/\.app\s*\{([^}]*)\}/)?.[1] ?? "";
+  it("makes .app the scroller (overflow-y auto, fixed viewport height)", () => {
+    expect(rule).toMatch(/overflow-y:\s*auto/);
+    expect(rule).toMatch(/height:\s*100dvh/);
+  });
+  it("clamps its own bounce with overscroll-behavior-y: contain", () => {
+    expect(rule).toMatch(/overscroll-behavior-y:\s*contain/);
+  });
+  it("no longer uses min-height: 100vh (page-level scroll) on .app", () => {
+    expect(rule).not.toMatch(/min-height:\s*100vh/);
+  });
+});
+
+describe("CSP-safe visibility gating (no inline styles)", () => {
+  it("hides the edit date/time row with a .hidden class, CSP-proof", () => {
+    expect(css).toMatch(/\.edit-dt-row\.hidden\s*\{[^}]*display:\s*none/);
+  });
+  it("restores the utility classes previously shipped as inline styles", () => {
+    expect(css).toMatch(/\.num-inline\s*\{[^}]*width:\s*64px/);
+    expect(css).toMatch(/\.svg-defs\s*\{[^}]*position:\s*absolute/);
+  });
+});
+
 describe("coarse-pointer scroll collapse", () => {
   it("hides the dock-head and hint when body.dock-min", () => {
     expect(css).toMatch(/body\.dock-min\s+\.dock-head\s*,/);

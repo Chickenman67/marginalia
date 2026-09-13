@@ -43,7 +43,12 @@ html { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; o
 *::-webkit-scrollbar-thumb:hover { background: var(--faint); }
 *::-webkit-scrollbar-corner { background: transparent; }
 
-.app { width: 100%; max-width: var(--maxw); min-height: 100vh; margin: 0 auto; display: flex; flex-direction: column; }
+.app {
+  width: 100%; max-width: var(--maxw);
+  height: 100vh; height: 100dvh;
+  margin: 0 auto; display: flex; flex-direction: column;
+  overflow-y: auto; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch;
+}
 
 header { padding: 22px 22px 0; display: flex; align-items: center; gap: 16px; flex-wrap: nowrap; }
 header h1 { font-family: "Fraunces", Georgia, serif; font-weight: 500; font-size: 26px; letter-spacing: -.01em; margin: 0; flex: 0 0 auto; }
@@ -301,6 +306,8 @@ main { flex: 1; padding: 18px 22px 150px; overscroll-behavior-y: contain; }
 .rules-head .muted { font-weight: 400; color: var(--faint); }
 #colorRules { display: grid; gap: 7px; margin-bottom: 9px; }
 
+.num-inline { width: 64px; margin: 0 4px; }
+
 .edit-dt-row {
   display: flex;
   gap: 8px;
@@ -308,6 +315,7 @@ main { flex: 1; padding: 18px 22px 150px; overscroll-behavior-y: contain; }
   flex-wrap: wrap;
   margin-bottom: 4px;
 }
+.edit-dt-row.hidden { display: none; }
 .all-day-toggle {
   display: flex;
   align-items: center;
@@ -657,6 +665,7 @@ main { flex: 1; padding: 18px 22px 150px; overscroll-behavior-y: contain; }
 .auth-social .soc-ic { width: 18px; height: 18px; flex: none; }
 .auth-social .btn:hover { background: #faf7f1; border-color: #bab2a0; }
 .link { background: none; border: 0; color: #3f7d6e; cursor: pointer; padding: 0; margin-top: 8px; font: inherit; }
+.svg-defs { position: absolute; }
 .auth-status { min-height: 18px; margin-top: 8px; font-size: 13px; }
 .auth-status.bad { color: #b13a3a; }
 .auth-status.good { color: #2f6b4f; }
