@@ -57,11 +57,41 @@ async function bootApp() {
     lastScrollY = app.scrollTop;
     document.body.classList.toggle("dock-min", dockMin);
   };
+
+  // Bounce guard: iOS Safari shows elastic overscroll on scroll containers
+  // even with overscroll-behavior:none (it only prevents chaining, not the
+  // visual bounce). Hard-clamp scrollTop and block touchmove at edges to
+  // simulate UIScrollView.bounces = false.
+  let clampPending = false;
+  const clampScroll = () => {
+    if (!app) return;
+    const max = app.scrollHeight - app.clientHeight;
+    if (app.scrollTop < 0) { app.scrollTop = 0; clampPending = false; return; }
+    if (app.scrollTop > max) { app.scrollTop = max; clampPending = false; return; }
+    clampPending = false;
+  };
+
   if (app) {
     app.addEventListener("scroll", () => {
       cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(applyDockMin);
+      // Bounce guard: clamp edges each frame during momentum
+      if (!clampPending) { clampPending = true; requestAnimationFrame(clampScroll); }
     }, { passive: true });
+
+    // Prevent touchmove from starting an overscroll at the edges
+    let touchStartY = 0;
+    let touchStartTop = 0;
+    app.addEventListener("touchstart", (e) => {
+      touchStartY = e.touches[0].clientY;
+      touchStartTop = app.scrollTop;
+    }, { passive: true });
+    app.addEventListener("touchmove", (e) => {
+      const max = app.scrollHeight - app.clientHeight;
+      const dy = touchStartY - e.touches[0].clientY;
+      if (touchStartTop <= 0 && dy < 0) { e.preventDefault(); return; }
+      if (touchStartTop >= max - 1 && dy > 0) { e.preventDefault(); return; }
+    }, { passive: false });
   }
 
   subscribe((items: Item[]) => resetNotified(items.map((i) => i.id)));

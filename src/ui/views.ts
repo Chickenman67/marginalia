@@ -399,6 +399,9 @@ export function bindCardEvents(
     };
   });
   applyTitleExpandability(root, isClamped);
+  // Re-measure after the next paint so iOS Safari has time to lay out
+  // -webkit-line-clamp: 4 boxes before we judge scrollHeight vs clientHeight.
+  requestAnimationFrame(() => applyTitleExpandability(root, isClamped));
 }
 
 export function groupByDay(items: Item[], selectable = false, cardOpts: { showPin?: boolean } = {}): string {
