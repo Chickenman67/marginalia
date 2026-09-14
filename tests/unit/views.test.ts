@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { applyView, cardHTML, groupByDay, weekdayShort } from "../../src/ui/views";
+import { applyView, cardHTML, groupByDay, weekdayShort, sortDeletedRecent } from "../../src/ui/views";
 import type { Item } from "../../src/types";
 
 function mkItem(title: string, datetime: string | null, status: "pending" | "done" = "pending", order = 0): Item {
@@ -386,5 +386,23 @@ describe("groupByDay", () => {
     ];
     const html = groupByDay(items, false);
     expect(html).toContain("pin-btn");
+  });
+});
+
+describe("sortDeletedRecent", () => {
+  const del = (id: string, deleted_at: string | null): Item =>
+    ({ ...mkItemFull({ id, title: id }), deleted_at } as Item);
+  it("orders most recently deleted first", () => {
+    const items = [
+      del("old", "2026-09-01T00:00:00.000Z"),
+      del("new", "2026-09-10T00:00:00.000Z"),
+      del("mid", "2026-09-05T00:00:00.000Z")
+    ];
+    expect(sortDeletedRecent(items).map((i) => i.id)).toEqual(["new", "mid", "old"]);
+  });
+  it("does not mutate the input array", () => {
+    const items = [del("a", "2026-09-01T00:00:00.000Z"), del("b", "2026-09-02T00:00:00.000Z")];
+    sortDeletedRecent(items);
+    expect(items.map((i) => i.id)).toEqual(["a", "b"]);
   });
 });

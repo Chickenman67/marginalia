@@ -180,6 +180,19 @@ function manualComparator(a: Item, b: Item): number {
   return a.order - b.order || a.created_at.localeCompare(b.created_at);
 }
 
+// Deleted view: most recently deleted first. Items without a parseable
+// deleted_at sink to the bottom, preserving their relative order.
+export function sortDeletedRecent(items: Item[]): Item[] {
+  return items.slice().sort((a, b) => {
+    const at = a.deleted_at ? new Date(a.deleted_at).getTime() : NaN;
+    const bt = b.deleted_at ? new Date(b.deleted_at).getTime() : NaN;
+    if (isNaN(at) && isNaN(bt)) return 0;
+    if (isNaN(at)) return 1;
+    if (isNaN(bt)) return -1;
+    return bt - at;
+  });
+}
+
 type V2State = ScheduleState | TodosState | DueState;
 
 export function applyViewV2(

@@ -1,7 +1,7 @@
 import { addItem, subscribe, deleteItem, setItems, restoreItem, permanentlyDeleteItem, editItem } from "../store";
 import { parsePhrase, polishPhrase, updateItem } from "../supabase";
 import { createSpeech } from "../speech";
-import { cardHTML, bindCardEvents, groupByDay, esc, applyViewV2, applyTitleExpandability, starClickValue, type ScheduleState, type TodosState, type DueState } from "./views";
+import { cardHTML, bindCardEvents, groupByDay, esc, applyViewV2, applyTitleExpandability, starClickValue, sortDeletedRecent, type ScheduleState, type TodosState, type DueState } from "./views";
 import { mountFilterPanel } from "./filterPanel";
 import { openCalendar, openTimePicker } from "./calendar";
 import { getSettings, subscribeSettings } from "../settings";
@@ -530,7 +530,8 @@ export function mountViews(): void {
     
     const settings = getSettings();
     if (settings.showDeleted) {
-      deletedCards.innerHTML = deletedItems.length ? deletedItems.map((i) => {
+      const deletedRecent = sortDeletedRecent(deletedItems);
+      deletedCards.innerHTML = deletedRecent.length ? deletedRecent.map((i) => {
         const daysAgo = i.deleted_at ? Math.floor((Date.now() - new Date(i.deleted_at).getTime()) / 86400000) : 0;
         return `<div class="card deleted" data-id="${i.id}">
           <div class="body">

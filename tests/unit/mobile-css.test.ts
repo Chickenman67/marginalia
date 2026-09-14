@@ -83,6 +83,11 @@ describe("tabs never flex-shrink inside the .app column", () => {
     expect(rule).toContain("position: sticky");
     expect(rule).toContain("top: 0");
   });
+  it("paints the tab bar in the paper page background, not panel", () => {
+    const rule = css.match(/\.tabs\s*\{([^}]*)\}/)?.[1] ?? "";
+    expect(rule).toMatch(/background:\s*var\(--paper\)/);
+    expect(rule).not.toMatch(/background:\s*var\(--panel\)/);
+  });
 });
 
 describe("CSP-safe visibility gating (no inline styles)", () => {

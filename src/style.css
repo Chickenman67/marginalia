@@ -73,7 +73,7 @@ header .tag { font-size: 12.5px; color: var(--muted); }
 .gear-btn:hover { color: var(--ink); border-color: var(--line-strong); background: var(--paper); }
 .gear-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
-.tabs { display: flex; gap: 4px; padding: 14px 22px 0; border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; position: sticky; top: 0; z-index: 5; background: var(--panel); flex: none; }
+.tabs { display: flex; gap: 4px; padding: 14px 22px 0; border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; position: sticky; top: 0; z-index: 5; background: var(--paper); flex: none; }
 .tabs::-webkit-scrollbar { display: none; }
 .tab {
   appearance: none; border: none; background: none; cursor: pointer; font: 500 14.5px/1 "Inter";
