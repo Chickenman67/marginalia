@@ -48,7 +48,11 @@ html { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; o
   height: 100vh; height: 100dvh;
   margin: 0 auto; display: flex; flex-direction: column;
   overflow-y: auto; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch;
+  /* The app column is the scroller; keep the chrome clean with no visible
+     scrollbar on desktop while the wheel/trackpad still scrolls. */
+  scrollbar-width: none; -ms-overflow-style: none;
 }
+.app::-webkit-scrollbar { display: none; }
 
 header { padding: 22px 22px 0; display: flex; align-items: center; gap: 16px; flex-wrap: nowrap; }
 header h1 { font-family: "Fraunces", Georgia, serif; font-weight: 500; font-size: 26px; letter-spacing: -.01em; margin: 0; flex: 0 0 auto; }
@@ -69,7 +73,7 @@ header .tag { font-size: 12.5px; color: var(--muted); }
 .gear-btn:hover { color: var(--ink); border-color: var(--line-strong); background: var(--paper); }
 .gear-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
-.tabs { display: flex; gap: 4px; padding: 14px 22px 0; border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; position: sticky; top: 0; z-index: 5; background: var(--panel); }
+.tabs { display: flex; gap: 4px; padding: 14px 22px 0; border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; position: sticky; top: 0; z-index: 5; background: var(--panel); flex: none; }
 .tabs::-webkit-scrollbar { display: none; }
 .tab {
   appearance: none; border: none; background: none; cursor: pointer; font: 500 14.5px/1 "Inter";

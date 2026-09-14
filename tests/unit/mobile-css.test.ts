@@ -70,6 +70,19 @@ describe("dedicated app scroll container", () => {
   it("no longer uses min-height: 100vh (page-level scroll) on .app", () => {
     expect(rule).not.toMatch(/min-height:\s*100vh/);
   });
+  it("hides the app-column scrollbar (no visual scrollbar on desktop)", () => {
+    expect(rule).toMatch(/scrollbar-width:\s*none/);
+    expect(css).toMatch(/\.app::-webkit-scrollbar\s*\{[^}]*display:\s*none/);
+  });
+});
+
+describe("tabs never flex-shrink inside the .app column", () => {
+  it("keeps the sticky tab bar at content height (flex: none)", () => {
+    const rule = css.match(/\.tabs\s*\{([^}]*)\}/)?.[1] ?? "";
+    expect(rule).toMatch(/flex:\s*none/);
+    expect(rule).toContain("position: sticky");
+    expect(rule).toContain("top: 0");
+  });
 });
 
 describe("CSP-safe visibility gating (no inline styles)", () => {
