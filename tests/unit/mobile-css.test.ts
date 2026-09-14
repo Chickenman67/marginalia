@@ -23,8 +23,20 @@ describe("mobile CSS — title clamp", () => {
     expect(rule).toMatch(/-webkit-line-clamp:\s*4/);
     expect(rule).toMatch(/white-space:\s*normal/);
   });
+  it("wraps long words inside the card instead of clipping mid-glyph", () => {
+    const rule = css.match(/\.card\s+\.title\s*,\s*\.card\.todo\s+\.title\s*\{([^}]*)\}/)?.[1] ?? "";
+    expect(rule).toMatch(/overflow-wrap:\s*break-word/);
+    expect(rule).toMatch(/word-break:\s*break-word/);
+    expect(rule).toMatch(/max-width:\s*100%/);
+  });
   it("un-clamps .expanded titles", () => {
     expect(css).toMatch(/\.card\.expanded\s+\.title\s*\{[^}]*-webkit-line-clamp:\s*unset/);
+  });
+  it("keeps expanded titles wrapping vertically inside the card", () => {
+    const rule = css.match(/\.card\.expanded\s+\.title\s*\{([^}]*)\}/)?.[1] ?? "";
+    expect(rule).toMatch(/overflow-wrap:\s*break-word/);
+    expect(rule).toMatch(/word-break:\s*break-word/);
+    expect(rule).toMatch(/max-width:\s*100%/);
   });
 });
 

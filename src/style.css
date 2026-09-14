@@ -718,6 +718,10 @@ main { flex: 1; padding: 18px 22px 150px; overscroll-behavior-y: contain; }
   -webkit-box-orient: vertical;
   overflow: hidden;
   white-space: normal;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  min-width: 0;
+  max-width: 100%;
   font-weight: 500;
   font-size: 15.5px;
 }
@@ -725,6 +729,10 @@ main { flex: 1; padding: 18px 22px 150px; overscroll-behavior-y: contain; }
   display: block;
   -webkit-line-clamp: unset;
   overflow: visible;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* Expand indicator: only on titles that are actually clamped (cut off); always visible there */
