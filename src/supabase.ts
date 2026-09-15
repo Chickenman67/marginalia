@@ -204,6 +204,25 @@ function groqLenientBody(sys: string, user: string) {
   };
 }
 
+function groqPlainBody(sys: string, user: string) {
+  return {
+    model: GROQ_MODEL,
+    messages: [
+      { role: "system", content: sys },
+      { role: "user", content: user }
+    ],
+    temperature: 0.2
+  };
+}
+
+function sleep(ms: number): Promise<void> {
+  // Unit tests exercise the retry chain (attempt order, call counts) — real
+  // backoff would add seconds per all-fail test, so skip the wait when
+  // running under vitest. Production pacing is unchanged.
+  if (import.meta.env?.MODE === "test") return Promise.resolve();
+  return new Promise((r) => setTimeout(r, ms));
+}
+
 function groqErrorMessage(j: any, status: number): string {
   const base = j?.error?.message || `groq error ${status}`;
   const failed = j?.error?.failed_generation;
@@ -211,44 +230,82 @@ function groqErrorMessage(j: any, status: number): string {
   return detail ? `${base} (${detail})` : base;
 }
 
-// POST to Groq and return the assistant's raw content string. Tries strict
-// json_schema twice (transient failed_generation is common), then falls back
-// to lenient json_object once before throwing.
+// POST to Groq and return the assistant's raw content string. The small
+// gpt-oss-20b model fails constrained decoding intermittently — strict
+// json_schema 400s ("Failed to validate/generate JSON", failed_generation)
+// are transient and usually succeed on a prompt retry, so one user action
+// fans out into several attempts here instead of surfacing "AI unavailable"
+// and making the user tap again. Chain: strict x2, lenient json_object x3,
+// then one plain call with no response_format. Content is parse-validated
+// inside the loop so a 200 with empty/garbled JSON retries instead of
+// throwing. Backoff with jitter between attempts; transport errors retry.
 async function groqChatContent(opts: { key: string; sys: string; user: string; schemaName: string; schema: object }): Promise<string> {
   const bodies = [
     groqStrictBody(opts.sys, opts.user, opts.schemaName, opts.schema),
     groqStrictBody(opts.sys, opts.user, opts.schemaName, opts.schema),
-    groqLenientBody(opts.sys, opts.user)
+    groqLenientBody(opts.sys, opts.user),
+    groqLenientBody(opts.sys, opts.user),
+    groqLenientBody(opts.sys, opts.user),
+    groqPlainBody(opts.sys, opts.user)
   ];
+  // Backoff between attempts (index i waits delays[i] before the next try).
+  const delays = [400, 700, 700, 900, 900];
   let lastErr = "";
-  for (const body of bodies) {
-    const res = await fetch(GROQ_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${opts.key}` },
-      body: JSON.stringify(body)
-    });
-    const j = await res.json().catch(() => ({}));
-    const content = j?.choices?.[0]?.message?.content;
-    if (res.ok && typeof content === "string" && content.trim()) return content;
-    lastErr = groqErrorMessage(j, res.status);
-    // Only retry on 400-generation failures and rate/transport 429/5xx.
-    // Auth errors (401/403) and bad schemas are permanent — stop immediately.
-    if (res.status === 401 || res.status === 403) break;
-    if (res.status !== 400 && res.status !== 429 && res.status < 500) break;
+  for (let i = 0; i < bodies.length; i++) {
+    try {
+      const res = await fetch(GROQ_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${opts.key}` },
+        body: JSON.stringify(bodies[i])
+      });
+      const j = await res.json().catch(() => ({}));
+      const content = j?.choices?.[0]?.message?.content;
+      if (typeof content === "string" && content.trim()) {
+        try {
+          parseJsonLenient(content);
+          return content;
+        } catch {
+          lastErr = `groq error: invalid JSON response (${content.trim().slice(0, 80)})`;
+        }
+      } else {
+        lastErr = groqErrorMessage(j, res.status);
+      }
+      // Auth errors (401/403) are permanent — stop immediately. Other 4xx
+      // (except retryable 400/429) are permanent too. A 200 with bad content
+      // falls through to the retry below rather than breaking.
+      if (res.status === 401 || res.status === 403) break;
+      if (!res.ok && res.status !== 400 && res.status !== 429 && res.status < 500) break;
+    } catch (e) {
+      // Transport/abort failures are transient — retry with backoff.
+      lastErr = e instanceof Error ? e.message : "groq error: network failure";
+    }
+    if (i < bodies.length - 1) {
+      await sleep((delays[i] ?? 1000) + Math.random() * 250);
+    }
   }
   throw new Error(lastErr || "groq error: empty response");
 }
 
 // Strip markdown fences (```json ... ```) the model sometimes adds despite
-// JSON mode, then JSON.parse. Throws a clear error when still unparseable.
+// JSON mode, then JSON.parse with repair fallbacks: extract the outer {...}
+// when the model wraps JSON in prose (plain fallback call), and tolerate
+// trailing commas (`,}` / `,]`). Throws a clear error when still unparseable.
 export function parseJsonLenient(content: string): any {
   const fenced = content.trim().match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
   const raw = (fenced ? fenced[1] : content).trim();
-  try {
-    return JSON.parse(raw);
-  } catch {
-    throw new Error(`groq error: invalid JSON response (${raw.slice(0, 80)})`);
+  const candidates: string[] = [raw];
+  const start = raw.indexOf("{");
+  const end = raw.lastIndexOf("}");
+  if (start > 0 && end > start) candidates.push(raw.slice(start, end + 1));
+  for (const c of [...candidates]) candidates.push(c.replace(/,\s*([}\]])/g, "$1"));
+  for (const c of candidates) {
+    try {
+      return JSON.parse(c);
+    } catch {
+      // try next repair
+    }
   }
+  throw new Error(`groq error: invalid JSON response (${raw.slice(0, 80)})`);
 }
 
 async function parseDirect(phrase: string, provider: string, key: string): Promise<ParsedItem> {
@@ -273,11 +330,11 @@ async function parseDirect(phrase: string, provider: string, key: string): Promi
     }
     return normalize(JSON.parse(j.candidates[0].content.parts[0].text));
   }
-  // groq / mistral (openai-compat) — strict json_schema guarantees valid JSON
-  // for gpt-oss-20b via constrained decoding (Groq Structured Outputs). The
-  // old json_object mode fails intermittently with 400 "Failed to generate
-  // JSON" (failed_generation), so we try strict twice then fall back to
-  // lenient json_object once before surfacing the error.
+  // groq / mistral (openai-compat) — strict json_schema constrains
+  // gpt-oss-20b via Groq Structured Outputs, but constrained decoding fails
+  // intermittently with 400 "Failed to validate/generate JSON"
+  // (failed_generation), so groqChatContent fans out (strict x2, lenient
+  // json_object x3, plain x1 with backoff) before surfacing the error.
   const content = await groqChatContent({
     key,
     sys,
@@ -354,7 +411,7 @@ export async function polishPhrase(paragraph: string): Promise<PolishResult> {
 }
 
 async function polishDirect(paragraph: string, provider: string, key: string): Promise<PolishResult> {
-  const sys = "Output ONLY a valid JSON object, no commentary or markdown. Organize a rambling paragraph into a JSON object {items:[{title, kind('event'|'todo'), datetime(ISO8601 or null), reminder(ISO8601 or null)}]}. If a line has a time it is an event, otherwise a todo. Resolve relative times to the user's LOCAL time and current year. RELATIVE-NOW cues like 'in the next hour' / 'in 30 minutes' mean FROM NOW (today), never tomorrow — anchor on the current time. A bare weekday with no time ('wednesday') is an ALL-DAY event on the nearest upcoming occurrence of that weekday (this week, else next week). Time-of-day words make timed events, never todos. Cap at 100 items.";
+  const sys = "Output ONLY a valid JSON object, no commentary or markdown. Organize a rambling paragraph into a JSON object {items:[{title, kind('event'|'todo'), datetime(ISO8601 or null), reminder(ISO8601 or null)}]}. Split run-ons, one item per task, keep order/location/mode details in the title. Weekdays mean NEAREST upcoming occurrence from TODAY (same weekday today => today; e.g. Tue Sep 15 => Wed Sep 16, Thu Sep 17, Fri Sep 18). Weekday + clock ('Friday 8:30', 'Thursday 9', 'Wednesday 1:30', 'today 3:30', 'Friday 5 PM') is a TIMED event that day — combine, don't default to today. Time-of-day words make timed events never todos (morning 9am, afternoon 2pm, lunch/noon 12pm, evening 6pm, dinner 7pm, tonight/Tuesday-night 8pm, night 9pm). Deadlines are EVENTS with dates never dateless todos: 'by the 20th/15th' => all-day that day-of-month current month (next month only if passed); 'in N days' => today+N; 'ASAP/now' => today now. Otherwise event only with specific date/deadline/time-of-day; timeless wishes ('learn guitar, no clue when') => todo null. Recurrence ('every weekday') => ONE event next occurrence titled '(repeats weekdays)'. Resolve relative times to LOCAL time and current year. RELATIVE-NOW cues like 'in the next hour' / 'in 30 minutes' mean FROM NOW (today), never tomorrow. A bare weekday with no time ('wednesday') is an ALL-DAY event on the nearest upcoming occurrence. Cap at 100 items.";
   let parsed: any;
   if (provider === "gemini") {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${key}`;

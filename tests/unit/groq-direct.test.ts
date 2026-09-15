@@ -83,7 +83,75 @@ describe("groq direct path — strict json_schema", () => {
       groqFail("Failed to generate JSON. Please adjust your prompt.", "{bad-gen}")
     );
     await expect(parsePhrase("call mom tomorrow")).rejects.toThrow(/Failed to generate JSON/);
-    expect((fetch as any).mock.calls.length).toBe(3);
+    // strict x2 + lenient x3 + plain x1
+    expect((fetch as any).mock.calls.length).toBe(6);
+  });
+
+  it("parsePhrase retries the exact 'Failed to validate JSON' error then succeeds", async () => {
+    (globalThis.fetch as any) = vi.fn()
+      .mockResolvedValueOnce(groqFail("Failed to validate JSON. Please adjust your prompt. See 'failed_generation' for more details.", "{bad"))
+      .mockResolvedValueOnce(
+        groqOk(JSON.stringify({ title: "Call mom", datetime: null, type: "todo", reminder: null }))
+      );
+    const out = await parsePhrase("call mom tomorrow");
+    expect(out.title).toBe("Call mom");
+    expect((fetch as any).mock.calls.length).toBe(2);
+  });
+
+  it("parsePhrase retries a 200 with empty content then succeeds", async () => {
+    (globalThis.fetch as any) = vi.fn()
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ choices: [{ message: { content: "   " } }] }) })
+      .mockResolvedValueOnce(
+        groqOk(JSON.stringify({ title: "Call mom", datetime: null, type: "todo", reminder: null }))
+      );
+    const out = await parsePhrase("call mom tomorrow");
+    expect(out.title).toBe("Call mom");
+    expect((fetch as any).mock.calls.length).toBe(2);
+  });
+
+  it("parsePhrase retries a 200 with unparseable JSON then succeeds", async () => {
+    (globalThis.fetch as any) = vi.fn()
+      .mockResolvedValueOnce(groqOk("not json at all {{{"))
+      .mockResolvedValueOnce(
+        groqOk(JSON.stringify({ title: "Call mom", datetime: null, type: "todo", reminder: null }))
+      );
+    const out = await parsePhrase("call mom tomorrow");
+    expect(out.title).toBe("Call mom");
+    expect((fetch as any).mock.calls.length).toBe(2);
+  });
+
+  it("parsePhrase retries a network failure then succeeds", async () => {
+    (globalThis.fetch as any) = vi.fn()
+      .mockRejectedValueOnce(new TypeError("fetch failed"))
+      .mockResolvedValueOnce(
+        groqOk(JSON.stringify({ title: "Call mom", datetime: null, type: "todo", reminder: null }))
+      );
+    const out = await parsePhrase("call mom tomorrow");
+    expect(out.title).toBe("Call mom");
+    expect((fetch as any).mock.calls.length).toBe(2);
+  });
+
+  it("parsePhrase succeeds on a late lenient attempt without bothering the user", async () => {
+    const calls: any[] = [];
+    (globalThis.fetch as any) = vi.fn().mockImplementation(async (_url: string, init: any) => {
+      calls.push(JSON.parse(init.body));
+      if (calls.length < 5) return groqFail("Failed to validate JSON. Please adjust your prompt.", "{bad");
+      return groqOk(JSON.stringify({ title: "Call mom", datetime: null, type: "todo", reminder: null }));
+    });
+    const out = await parsePhrase("call mom tomorrow");
+    expect(out.title).toBe("Call mom");
+    expect(calls.length).toBe(5);
+    expect(calls[4].response_format.type).toBe("json_object");
+  });
+
+  it("parsePhrase stops immediately on 401 (permanent auth error)", async () => {
+    (globalThis.fetch as any) = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({ error: { message: "Invalid API Key" } })
+    });
+    await expect(parsePhrase("call mom tomorrow")).rejects.toThrow(/Invalid API Key/);
+    expect((fetch as any).mock.calls.length).toBe(1);
   });
 
   it("polishPhrase sends the items schema and normalizes drafts", async () => {
@@ -103,6 +171,12 @@ describe("groq direct path — strict json_schema", () => {
 describe("parseJsonLenient", () => {
   it("strips ```json fences", () => {
     expect(parseJsonLenient('```json\n{"a":1}\n```')).toEqual({ a: 1 });
+  });
+  it("extracts JSON wrapped in prose", () => {
+    expect(parseJsonLenient('Sure! Here is your JSON: {"a":1} hope that helps')).toEqual({ a: 1 });
+  });
+  it("tolerates trailing commas", () => {
+    expect(parseJsonLenient('{"a":1,}')).toEqual({ a: 1 });
   });
   it("throws a clear groq error on invalid JSON", () => {
     expect(() => parseJsonLenient("not json")).toThrow(/groq error: invalid JSON/);
