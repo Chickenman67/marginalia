@@ -136,9 +136,124 @@ export async function parsePhrase(phrase: string): Promise<ParsedItem> {
   return applyResolve(await parseDirect(phrase, provider, userKey), phrase);
 }
 
+// --- Groq direct path (OpenAI-compat) ---
+const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_MODEL = "openai/gpt-oss-20b";
+
+// Strict schemas for Groq Structured Outputs (strict:true requires every
+// field listed in `required` and `additionalProperties: false`). Nullable
+// fields use a ["string","null"] union so the model can emit real nulls.
+const PARSE_SCHEMA = {
+  type: "object",
+  properties: {
+    title: { type: "string" },
+    datetime: { type: ["string", "null"] },
+    type: { type: "string", enum: ["todo", "event"] },
+    reminder: { type: ["string", "null"] }
+  },
+  required: ["title", "datetime", "type", "reminder"],
+  additionalProperties: false
+};
+
+const POLISH_SCHEMA = {
+  type: "object",
+  properties: {
+    items: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          title: { type: "string" },
+          kind: { type: "string", enum: ["todo", "event"] },
+          datetime: { type: ["string", "null"] },
+          reminder: { type: ["string", "null"] }
+        },
+        required: ["title", "kind", "datetime", "reminder"],
+        additionalProperties: false
+      }
+    }
+  },
+  required: ["items"],
+  additionalProperties: false
+};
+
+function groqStrictBody(sys: string, user: string, schemaName: string, schema: object) {
+  return {
+    model: GROQ_MODEL,
+    messages: [
+      { role: "system", content: sys },
+      { role: "user", content: user }
+    ],
+    temperature: 0.2,
+    response_format: {
+      type: "json_schema",
+      json_schema: { name: schemaName, strict: true, schema }
+    }
+  };
+}
+
+function groqLenientBody(sys: string, user: string) {
+  return {
+    model: GROQ_MODEL,
+    messages: [
+      { role: "system", content: sys },
+      { role: "user", content: user }
+    ],
+    temperature: 0.2,
+    response_format: { type: "json_object" }
+  };
+}
+
+function groqErrorMessage(j: any, status: number): string {
+  const base = j?.error?.message || `groq error ${status}`;
+  const failed = j?.error?.failed_generation;
+  const detail = typeof failed === "string" ? failed.slice(0, 200) : "";
+  return detail ? `${base} (${detail})` : base;
+}
+
+// POST to Groq and return the assistant's raw content string. Tries strict
+// json_schema twice (transient failed_generation is common), then falls back
+// to lenient json_object once before throwing.
+async function groqChatContent(opts: { key: string; sys: string; user: string; schemaName: string; schema: object }): Promise<string> {
+  const bodies = [
+    groqStrictBody(opts.sys, opts.user, opts.schemaName, opts.schema),
+    groqStrictBody(opts.sys, opts.user, opts.schemaName, opts.schema),
+    groqLenientBody(opts.sys, opts.user)
+  ];
+  let lastErr = "";
+  for (const body of bodies) {
+    const res = await fetch(GROQ_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${opts.key}` },
+      body: JSON.stringify(body)
+    });
+    const j = await res.json().catch(() => ({}));
+    const content = j?.choices?.[0]?.message?.content;
+    if (res.ok && typeof content === "string" && content.trim()) return content;
+    lastErr = groqErrorMessage(j, res.status);
+    // Only retry on 400-generation failures and rate/transport 429/5xx.
+    // Auth errors (401/403) and bad schemas are permanent — stop immediately.
+    if (res.status === 401 || res.status === 403) break;
+    if (res.status !== 400 && res.status !== 429 && res.status < 500) break;
+  }
+  throw new Error(lastErr || "groq error: empty response");
+}
+
+// Strip markdown fences (```json ... ```) the model sometimes adds despite
+// JSON mode, then JSON.parse. Throws a clear error when still unparseable.
+export function parseJsonLenient(content: string): any {
+  const fenced = content.trim().match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  const raw = (fenced ? fenced[1] : content).trim();
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw new Error(`groq error: invalid JSON response (${raw.slice(0, 80)})`);
+  }
+}
+
 async function parseDirect(phrase: string, provider: string, key: string): Promise<ParsedItem> {
-  // Gemini: key-in-URL, responseSchema. Groq: OpenAI-compat, json_object.
-  const sys = "Convert a scheduling phrase into JSON {title, datetime (ISO8601 or null), type ('todo'|'event'), reminder (ISO8601 or null)}. datetime present => event. A BARE weekday name with no clock time ('wednesday') is an ALL-DAY event on the NEAREST upcoming occurrence of that weekday (today counts; this week if still ahead, otherwise next week). Time-of-day words (morning 9am, afternoon 2pm, evening 6pm, tonight 8pm) are timed events at that hour, never todos. type 'todo' ONLY if no date or time-of-day is mentioned.";
+  // Gemini: key-in-URL, responseSchema. Groq: OpenAI-compat, strict json_schema.
+  const sys = "Output ONLY a valid JSON object, no commentary or markdown. Convert a scheduling phrase into JSON {title, datetime (ISO8601 or null), type ('todo'|'event'), reminder (ISO8601 or null)}. datetime present => event. A BARE weekday name with no clock time ('wednesday') is an ALL-DAY event on the NEAREST upcoming occurrence of that weekday (today counts; this week if still ahead, otherwise next week). Time-of-day words (morning 9am, afternoon 2pm, evening 6pm, tonight 8pm) are timed events at that hour, never todos. type 'todo' ONLY if no date or time-of-day is mentioned.";
   if (provider === "gemini") {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${key}`;
     const res = await fetch(url, {
@@ -158,17 +273,19 @@ async function parseDirect(phrase: string, provider: string, key: string): Promi
     }
     return normalize(JSON.parse(j.candidates[0].content.parts[0].text));
   }
-  // groq / mistral (openai-compat)
-  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-    body: JSON.stringify({ model: "openai/gpt-oss-20b", messages: [{ role: "system", content: sys }, { role: "user", content: phrase }], response_format: { type: "json_object" } })
+  // groq / mistral (openai-compat) — strict json_schema guarantees valid JSON
+  // for gpt-oss-20b via constrained decoding (Groq Structured Outputs). The
+  // old json_object mode fails intermittently with 400 "Failed to generate
+  // JSON" (failed_generation), so we try strict twice then fall back to
+  // lenient json_object once before surfacing the error.
+  const content = await groqChatContent({
+    key,
+    sys,
+    user: phrase,
+    schemaName: "schedule_parse",
+    schema: PARSE_SCHEMA
   });
-  const j = await res.json();
-  if (!res.ok || !j.choices?.[0]?.message?.content) {
-    throw new Error(`groq error: ${j.error?.message || res.status}`);
-  }
-  return normalize(JSON.parse(j.choices[0].message.content));
+  return normalize(parseJsonLenient(content));
 }
 
 function asLocalISO(value: any): string | null {
@@ -237,7 +354,7 @@ export async function polishPhrase(paragraph: string): Promise<PolishResult> {
 }
 
 async function polishDirect(paragraph: string, provider: string, key: string): Promise<PolishResult> {
-  const sys = "Organize a rambling paragraph into a JSON object {items:[{title, kind('event'|'todo'), datetime(ISO8601 or null), reminder(ISO8601 or null)}]}. If a line has a time it is an event, otherwise a todo. Resolve relative times to the user's LOCAL time and current year. RELATIVE-NOW cues like 'in the next hour' / 'in 30 minutes' mean FROM NOW (today), never tomorrow — anchor on the current time. A bare weekday with no time ('wednesday') is an ALL-DAY event on the nearest upcoming occurrence of that weekday (this week, else next week). Time-of-day words make timed events, never todos. Cap at 100 items.";
+  const sys = "Output ONLY a valid JSON object, no commentary or markdown. Organize a rambling paragraph into a JSON object {items:[{title, kind('event'|'todo'), datetime(ISO8601 or null), reminder(ISO8601 or null)}]}. If a line has a time it is an event, otherwise a todo. Resolve relative times to the user's LOCAL time and current year. RELATIVE-NOW cues like 'in the next hour' / 'in 30 minutes' mean FROM NOW (today), never tomorrow — anchor on the current time. A bare weekday with no time ('wednesday') is an ALL-DAY event on the nearest upcoming occurrence of that weekday (this week, else next week). Time-of-day words make timed events, never todos. Cap at 100 items.";
   let parsed: any;
   if (provider === "gemini") {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${key}`;
@@ -269,16 +386,14 @@ async function polishDirect(paragraph: string, provider: string, key: string): P
     }
     parsed = JSON.parse(j.candidates[0].content.parts[0].text);
     } else {
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ model: "openai/gpt-oss-20b", messages: [{ role: "system", content: sys }, { role: "user", content: paragraph }], response_format: { type: "json_object" } })
+    const content = await groqChatContent({
+      key,
+      sys,
+      user: paragraph,
+      schemaName: "schedule_polish",
+      schema: POLISH_SCHEMA
     });
-    const j = await res.json();
-    if (!res.ok || !j.choices?.[0]?.message?.content) {
-      throw new Error(`groq error: ${j.error?.message || res.status}`);
-    }
-    parsed = JSON.parse(j.choices[0].message.content);
+    parsed = parseJsonLenient(content);
   }
   const items: DraftItem[] = (Array.isArray(parsed.items) ? parsed.items : []).slice(0, 100).map(normalizeDraft);
   return { items };

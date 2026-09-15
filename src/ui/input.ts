@@ -725,7 +725,7 @@ form.addEventListener("submit", async (e) => {
   const when = allDay ? `${pickedDate}T00:00:00` : `${pickedDate}T${pickedTime || "09:00"}:00`;
   const iso = localToISO(when);
   if (!iso) return;
-  await addItem({ title, kind: "event", datetime: iso, reminder: null });
+  await addItem({ title, kind: "event", datetime: iso, allDay, reminder: null });
   el<HTMLInputElement>("#evTitle").value = "";
 });
 
