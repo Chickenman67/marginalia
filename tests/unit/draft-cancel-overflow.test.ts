@@ -15,3 +15,11 @@ describe("draft actions row", () => {
     expect(css).not.toMatch(/#draft\s+#addAll\s*\{[^}]*width:\s*100%/);
   });
 });
+
+describe("draft scroll container", () => {
+  it("caps .draft-list height with its own scroll", () => {
+    expect(css).toMatch(/\.draft-list\s*\{[^}]*max-height:\s*38vh/);
+    expect(css).toMatch(/\.draft-list\s*\{[^}]*overflow-y:\s*auto/);
+    expect(css).toMatch(/\.draft-list\s*\{[^}]*overscroll-behavior:\s*contain/);
+  });
+});

@@ -6,6 +6,7 @@ import { mountFilterPanel } from "./filterPanel";
 import { openCalendar, openTimePicker } from "./calendar";
 import { getSettings, subscribeSettings } from "../settings";
 import { resolveSchedule, guessResolve } from "../dates";
+import { draftHTML, toLocalInput } from "./draft";
 import type { Item, ParsedItem, DraftItem, PolishResult } from "../types";
 
 function el<T extends HTMLElement>(sel: string): T { return document.querySelector(sel) as T; }
@@ -224,19 +225,7 @@ export function mountInput(): void {
     const draftEl = el<HTMLDivElement>("#draft");
     const events = currentDraft.map((i, idx) => ({ i, idx })).filter((x) => x.i.kind === "event");
     const todos = currentDraft.map((i, idx) => ({ i, idx })).filter((x) => x.i.kind === "todo");
-
-    const row = (i: DraftItem, idx: number) => `
-      <div class="draft-row" data-idx="${idx}">
-        <input class="draft-title" value="${esc(i.title)}" aria-label="Title" />
-        ${i.kind === "event" ? `<input type="datetime-local" class="draft-dt" value="${toLocalInput(i.datetime)}" aria-label="When" />` : ""}
-        <button class="draft-move" title="Toggle todo/event">${i.kind === "event" ? "→ todo" : "→ event"}</button>
-        <button class="draft-del" title="Remove">✕</button>
-      </div>`;
-
-    draftEl.innerHTML = `
-      <div class="draft-group"><h4>Schedule</h4>${events.length ? events.map((x) => row(x.i, x.idx)).join("") : `<div class="empty">No events</div>`}</div>
-      <div class="draft-group"><h4>Todos</h4>${todos.length ? todos.map((x) => row(x.i, x.idx)).join("") : `<div class="empty">No todos</div>`}</div>
-      <div class="draft-actions"><button class="btn primary" id="addAll">Add all</button><button class="btn" id="draftCancel">Cancel</button></div>`;
+    draftEl.innerHTML = draftHTML(events, todos);
 
     draftEl.querySelectorAll<HTMLInputElement>(".draft-title").forEach((inp) => {
       inp.oninput = () => { currentDraft[+inp.closest(".draft-row")!.getAttribute("data-idx")!].title = inp.value; };
@@ -311,14 +300,6 @@ function fmtAmPm(hhmm: string): string {
   const [hh, mm] = hhmm.split(":").map(Number);
   return `${String(((hh + 11) % 12) + 1).padStart(2, "0")}:${String(mm).padStart(2, "0")} ${hh >= 12 ? "PM" : "AM"}`;
 }
-function toLocalInput(dt: string | null): string {
-  if (!dt) return "";
-  const d = new Date(dt);
-  if (isNaN(d.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
 // Interpret a local wall-clock string ("YYYY-MM-DDTHH:MM") as the user's LOCAL
 // time, not UTC. `new Date("2026-08-28T15:00")` would treat it as UTC and shift
 // the stored time by the timezone offset — this pins it to local wall clock.
