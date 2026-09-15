@@ -23,3 +23,12 @@ describe("draft scroll container", () => {
     expect(css).toMatch(/\.draft-list\s*\{[^}]*overscroll-behavior:\s*contain/);
   });
 });
+
+describe("draft collapse + mobile", () => {
+  it("styles openable group summaries", () => {
+    expect(css).toMatch(/\.draft-group\s+summary\s*\{[^}]*cursor:\s*pointer/);
+  });
+  it("caps the list lower on phones", () => {
+    expect(css).toMatch(/@media\s*\(max-width:\s*520px\)[\s\S]*\.draft-list\s*\{[^}]*max-height:\s*30vh/);
+  });
+});

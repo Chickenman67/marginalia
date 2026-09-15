@@ -219,13 +219,19 @@ export function mountInput(): void {
   }
 
   let currentDraft: DraftItem[] = [];
+  const draftOpen = { schedule: true, todos: true };
 
   function renderDraft(items: DraftItem[]) {
     currentDraft = items.map((i) => ({ ...i }));
     const draftEl = el<HTMLDivElement>("#draft");
     const events = currentDraft.map((i, idx) => ({ i, idx })).filter((x) => x.i.kind === "event");
     const todos = currentDraft.map((i, idx) => ({ i, idx })).filter((x) => x.i.kind === "todo");
-    draftEl.innerHTML = draftHTML(events, todos);
+    const prev = draftEl.querySelectorAll("details.draft-group");
+    if (prev.length === 2) {
+      draftOpen.schedule = (prev[0] as HTMLDetailsElement).open;
+      draftOpen.todos = (prev[1] as HTMLDetailsElement).open;
+    }
+    draftEl.innerHTML = draftHTML(events, todos, draftOpen);
 
     draftEl.querySelectorAll<HTMLInputElement>(".draft-title").forEach((inp) => {
       inp.oninput = () => { currentDraft[+inp.closest(".draft-row")!.getAttribute("data-idx")!].title = inp.value; };

@@ -11,7 +11,8 @@ export function toLocalInput(dt: string | null): string {
 
 export function draftHTML(
   events: Array<{ i: DraftItem; idx: number }>,
-  todos: Array<{ i: DraftItem; idx: number }>
+  todos: Array<{ i: DraftItem; idx: number }>,
+  open: { schedule: boolean; todos: boolean } = { schedule: true, todos: true }
 ): string {
   const row = (i: DraftItem, idx: number) => `
       <div class="draft-row" data-idx="${idx}">
@@ -22,8 +23,8 @@ export function draftHTML(
       </div>`;
   return `
       <div class="draft-list">
-      <div class="draft-group"><h4>Schedule</h4>${events.length ? events.map((x) => row(x.i, x.idx)).join("") : `<div class="empty">No events</div>`}</div>
-      <div class="draft-group"><h4>Todos</h4>${todos.length ? todos.map((x) => row(x.i, x.idx)).join("") : `<div class="empty">No todos</div>`}</div>
+      <details class="draft-group"${open.schedule ? " open" : ""}><summary>Schedule (${events.length})</summary>${events.length ? events.map((x) => row(x.i, x.idx)).join("") : `<div class="empty">No events</div>`}</details>
+      <details class="draft-group"${open.todos ? " open" : ""}><summary>Todos (${todos.length})</summary>${todos.length ? todos.map((x) => row(x.i, x.idx)).join("") : `<div class="empty">No todos</div>`}</details>
       </div>
       <div class="draft-actions"><button class="btn primary" id="addAll">Add all</button><button class="btn" id="draftCancel">Cancel</button></div>`;
 }

@@ -251,6 +251,12 @@ main { flex: 1; padding: 18px 22px 150px; overscroll-behavior-y: contain; }
 #draftCancel { background: var(--paper); border-color: var(--line-strong); }
 #draftCancel:hover { background: #f6f3ec; border-color: var(--ink); }
 .draft-list { max-height: 38vh; overflow-y: auto; overscroll-behavior: contain; display: grid; gap: 14px; }
+.draft-group summary { cursor: pointer; margin: 0 0 10px; font-family: "Fraunces", serif; font-weight: 500; font-size: 14px; color: var(--muted); letter-spacing: .01em; }
+.draft-group summary::marker { color: var(--faint); }
+@media (max-width: 520px) {
+  .draft-list { max-height: 30vh; }
+  .draft-actions .btn { padding: 12px; min-height: 42px; }
+}
 .key-row #keyTest { flex: none; padding: 9px 14px; font-size: 14px; }
 .key-status { flex: 1; font-size: 12.5px; color: var(--muted); }
 .key-status.good { color: var(--todo); font-weight: 600; }
