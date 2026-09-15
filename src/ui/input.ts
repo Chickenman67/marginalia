@@ -236,7 +236,7 @@ export function mountInput(): void {
     draftEl.innerHTML = `
       <div class="draft-group"><h4>Schedule</h4>${events.length ? events.map((x) => row(x.i, x.idx)).join("") : `<div class="empty">No events</div>`}</div>
       <div class="draft-group"><h4>Todos</h4>${todos.length ? todos.map((x) => row(x.i, x.idx)).join("") : `<div class="empty">No todos</div>`}</div>
-      <button class="btn primary" id="addAll">Add all</button>`;
+      <div class="draft-actions"><button class="btn primary" id="addAll">Add all</button><button class="btn" id="draftCancel">Cancel</button></div>`;
 
     draftEl.querySelectorAll<HTMLInputElement>(".draft-title").forEach((inp) => {
       inp.oninput = () => { currentDraft[+inp.closest(".draft-row")!.getAttribute("data-idx")!].title = inp.value; };
@@ -260,6 +260,10 @@ export function mountInput(): void {
       };
     });
     el<HTMLButtonElement>("#addAll").onclick = addAll;
+    el<HTMLButtonElement>("#draftCancel").onclick = () => {
+      currentDraft = [];
+      el<HTMLDivElement>("#draft").innerHTML = "";
+    };
   }
 
   async function addAll() {
