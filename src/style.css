@@ -245,7 +245,11 @@ main { flex: 1; padding: 18px 22px 150px; overscroll-behavior-y: contain; }
 .draft-move:hover { background: var(--paper); border-color: var(--ink); }
 .draft-del { width: 38px; padding: 0; font-size: 15px; color: var(--faint); }
 .draft-del:hover { background: #f4e7e2; color: var(--danger); border-color: #e9c8bd; }
-#draft #addAll { width: 100%; margin-top: 4px; }
+.draft-actions { display: flex; gap: 9px; margin-top: 4px; }
+.draft-actions .btn { flex: 1; padding: 12px; }
+.draft-actions #addAll { width: auto; margin-top: 0; }
+#draftCancel { background: var(--paper); border-color: var(--line-strong); }
+#draftCancel:hover { background: #f6f3ec; border-color: var(--ink); }
 .key-row #keyTest { flex: none; padding: 9px 14px; font-size: 14px; }
 .key-status { flex: 1; font-size: 12.5px; color: var(--muted); }
 .key-status.good { color: var(--todo); font-weight: 600; }
