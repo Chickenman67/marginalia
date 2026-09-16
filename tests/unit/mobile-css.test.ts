@@ -4,6 +4,12 @@ import { resolve } from "node:path";
 
 const css = readFileSync(resolve(__dirname, "../../src/style.css"), "utf8");
 
+describe("mobile CSS — header clearance", () => {
+  it("pushes the header down inside a 520px breakpoint (safe-area aware)", () => {
+    expect(css).toMatch(/@media\s*\(max-width:\s*520px\)[\s\S]*header\s*\{[^}]*padding-top:\s*calc\(30px\s*\+\s*env\(safe-area-inset-top\)\)/);
+  });
+});
+
 describe("mobile CSS — writing bar", () => {
   it("slims the mic to 42px inside a 520px breakpoint", () => {
     expect(css).toMatch(/\.bar\s+\.mic\s*,\s*\.dictate-bar\s+\.mic\s*\{[^}]*width:\s*42px[^}]*height:\s*42px/);

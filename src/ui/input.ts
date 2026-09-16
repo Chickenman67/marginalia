@@ -6,7 +6,7 @@ import { mountFilterPanel } from "./filterPanel";
 import { openCalendar, openTimePicker } from "./calendar";
 import { getSettings, subscribeSettings } from "../settings";
 import { resolveSchedule, guessResolve } from "../dates";
-import { draftHTML, toLocalInput } from "./draft";
+import { draftHTML, toLocalInput, splitDraftDateTime, combineDraftDateTime, fmtDraftDate, fmtDraftTime } from "./draft";
 import type { Item, ParsedItem, DraftItem, PolishResult } from "../types";
 
 function el<T extends HTMLElement>(sel: string): T { return document.querySelector(sel) as T; }
@@ -236,14 +236,60 @@ export function mountInput(): void {
     draftEl.querySelectorAll<HTMLInputElement>(".draft-title").forEach((inp) => {
       inp.oninput = () => { currentDraft[+inp.closest(".draft-row")!.getAttribute("data-idx")!].title = inp.value; };
     });
-    draftEl.querySelectorAll<HTMLInputElement>(".draft-dt").forEach((inp) => {
-      inp.oninput = () => { currentDraft[+inp.closest(".draft-row")!.getAttribute("data-idx")!].datetime = inp.value ? localToISO(inp.value) : null; };
+    // Custom calendar / time popovers — same visually-appealing pickers as the
+    // manual Schedule add form (NOT native datetime-local). Labels update in
+    // place so title focus is never lost to a full re-render.
+    draftEl.querySelectorAll<HTMLButtonElement>(".draft-date").forEach((btn) => {
+      btn.onclick = () => {
+        const idx = +btn.closest(".draft-row")!.getAttribute("data-idx")!;
+        const cur = splitDraftDateTime(currentDraft[idx].datetime);
+        openCalendar(btn, cur.date, (iso) => {
+          const parts = splitDraftDateTime(currentDraft[idx].datetime);
+          const allDay = currentDraft[idx].allDay ?? false;
+          currentDraft[idx].datetime = combineDraftDateTime(iso, parts.time, allDay) ?? currentDraft[idx].datetime;
+          btn.textContent = fmtDraftDate(iso);
+        });
+      };
+    });
+    draftEl.querySelectorAll<HTMLButtonElement>(".draft-time").forEach((btn) => {
+      btn.onclick = () => {
+        const idx = +btn.closest(".draft-row")!.getAttribute("data-idx")!;
+        const cur = splitDraftDateTime(currentDraft[idx].datetime);
+        (window as any).__marginaliaMilitary = getSettings().militaryTime;
+        openTimePicker(btn, cur.time, (t) => {
+          const parts = splitDraftDateTime(currentDraft[idx].datetime);
+          currentDraft[idx].datetime = combineDraftDateTime(parts.date, t, false) ?? currentDraft[idx].datetime;
+          btn.textContent = fmtDraftTime(t);
+        });
+      };
+    });
+    draftEl.querySelectorAll<HTMLInputElement>(".draft-allday-cb").forEach((cb) => {
+      cb.onchange = () => {
+        const row = cb.closest(".draft-row")!;
+        const idx = +row.getAttribute("data-idx")!;
+        currentDraft[idx].allDay = cb.checked;
+        const parts = splitDraftDateTime(currentDraft[idx].datetime);
+        currentDraft[idx].datetime = combineDraftDateTime(parts.date, parts.time, cb.checked) ?? currentDraft[idx].datetime;
+        const timeBtn = row.querySelector<HTMLButtonElement>(".draft-time");
+        if (timeBtn) timeBtn.hidden = cb.checked;
+      };
     });
     draftEl.querySelectorAll<HTMLButtonElement>(".draft-move").forEach((b) => {
       b.onclick = () => {
         const idx = +b.closest(".draft-row")!.getAttribute("data-idx")!;
-        currentDraft[idx].kind = currentDraft[idx].kind === "event" ? "todo" : "event";
-        if (currentDraft[idx].kind === "todo") currentDraft[idx].datetime = null;
+        const it = currentDraft[idx];
+        if (it.kind === "event") {
+          // Switching to todo: keep datetime/allDay in memory (hidden, not
+          // nulled) so switching back restores the exact same schedule time.
+          it.kind = "todo";
+        } else {
+          it.kind = "event";
+          if (!it.datetime) {
+            const parts = splitDraftDateTime(null);
+            it.datetime = combineDraftDateTime(parts.date, parts.time, it.allDay ?? false);
+          }
+          if (it.allDay === undefined) it.allDay = false;
+        }
         renderDraft(currentDraft);
       };
     });
@@ -263,7 +309,10 @@ export function mountInput(): void {
 
   async function addAll() {
     for (const i of currentDraft) {
-      await addItem({ title: i.title, kind: i.kind, datetime: i.datetime, allDay: i.allDay, reminder: i.reminder });
+      const datetime = i.kind === "event"
+        ? (i.datetime ?? combineDraftDateTime(splitDraftDateTime(null).date, "09:00", i.allDay ?? false))
+        : null;
+      await addItem({ title: i.title, kind: i.kind, datetime, allDay: i.allDay, reminder: i.reminder });
     }
     el<HTMLTextAreaElement>("#para").value = "";
     el<HTMLDivElement>("#draft").innerHTML = "";

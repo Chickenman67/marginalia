@@ -7,7 +7,15 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const NVIDIA_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
-const MODEL = "mistralai/mistral-nemotron";
+// Same fallback chain as parse: NVIDIA's free shared tier 502/504s and drops
+// models, so try each in turn — smallest fast MoE first, then larger instruct.
+const MODELS = [
+  "nvidia/nemotron-3.5-lightning-30b-a3b",
+  "nvidia/llama-3.1-nemotron-70b-instruct",
+  "nvidia/nemotron-3-nano-30b-a3b",
+  "nvidia/llama-3.1-nemotron-51b-instruct",
+  "nvidia/nemotron-nano-3-30b-a3b"
+];
 
 // Rate limiting is durable + per-space, enforced in Postgres via
 // public.check_rate_limit (called after the space token is validated).
@@ -23,13 +31,17 @@ Output ONLY valid JSON of the form:
 { "items": [ { "title": string, "kind": "todo"|"event", "datetime": ISO8601 with timezone and CURRENT year (${now.getFullYear()}) or null, "reminder": ISO8601 or null } ] }
 The user's CURRENT local time RIGHT NOW is: ${now.toString()} (their local offset from UTC is ${tzOffsetMinutes >= 0 ? "+" : "-"}${Math.abs(tzOffsetMinutes)} minutes).
 Rules:
-- Split run-on sentences into separate items.
-- A BARE weekday name with no clock time ("wednesday") is an ALL-DAY EVENT on the NEAREST upcoming occurrence of that weekday (today counts; this week if still ahead, otherwise next week).
-- Time-of-day words ("morning" 09:00, "afternoon" 14:00, "evening" 18:00, "tonight" 20:00, "night" 21:00) make TIMED EVENTS on that day — never todos.
-- Otherwise, "event" only when a specific time is implied; otherwise "todo".
-- Resolve relative cues (today, tomorrow, next Tuesday) to the user's LOCAL wall-clock time and current year.
+- Split run-on sentences into separate items. Keep one item per task/errand. Preserve order notes in the title (e.g. "Dry cleaners first, then Costco").
+- Preserve key details in the title: location ("downtown"), mode ("virtual — check link"), people ("with Michael"), strictness ("no later").
+- Weekday resolution: "this Friday", "Friday", "Thursday", "Wednesday", etc. mean the NEAREST upcoming occurrence counting from TODAY local. Same weekday stated today => today. Example: if today is Tuesday Sep 15, then Wednesday => Sep 16, Thursday => Sep 17, Friday => Sep 18. Never emit a past date for a future cue, and never shift by a week unless that weekday already passed.
+- Weekday WITH a clock time ("dentist Friday at 8:30", "Thursday at 9", "Wednesday around 1:30", "today at 3:30", "report due Friday by 5 PM") is a TIMED event on that weekday at that hour/minute. Combine them — do not drop the weekday and do not default to today.
+- Time-of-day words make TIMED EVENTS, never todos: "morning" => 09:00, "afternoon" => 14:00, "lunch"/"noon" => 12:00, "evening" => 18:00, "dinner" => 19:00, "tonight"/"Tuesday night" => 20:00, "night" => 21:00 — that day if the hour is still ahead, else next day. "Tuesday night" on a Tuesday => tonight 20:00.
+- Deadlines are EVENTS with dates, never dateless todos: "by the 20th"/"by the 15th" => all-day event on that day-of-month in the current month (next month only if that date already passed); "in three days"/"in N days" => today + N days; "ASAP"/"right now" => today at the current local time; "by morning/afternoon/evening" => today at that hour if still ahead, else tomorrow.
+- Otherwise, "event" only when a specific date, deadline, or time-of-day is implied; a wish with no time at all ("learn guitar, no clue when") => type "todo", datetime null.
+- Recurrence ("every weekday at 10") is single-occurrence only: emit ONE event for the next occurrence (today at 10:00 if still ahead, else tomorrow) and note "(repeats weekdays)" in the title. Never drop it silently.
+- Resolve relative cues (today, tomorrow, in N days, next Tuesday) to the user's LOCAL wall-clock time and current year.
 - ALWAYS emit the user's LOCAL wall-clock hour/minute. Do NOT convert to UTC.
-- Each title is a short, polished, grammatical label (no leading articles like "ok" or "so").
+- Each title is a short, polished, grammatical label (no leading filler like "ok" or "so").
 - Do not include commentary.`;
 }
 
@@ -103,23 +115,60 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: "empty paragraph" }), { status: 400, headers: { ...corsFor(req), "content-type": "application/json" } });
   }
 
-  const nvidiaRes = await fetch(NVIDIA_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: [
-        { role: "system", content: SYSTEM(tzOffsetMinutes) },
-        { role: "user", content: paragraph }
-      ],
-      response_format: { type: "json_object" },
-      temperature: 0.2
-    })
-  });
+  // Try each NVIDIA model in MODELS with retries (same policy as parse:
+  // per-model 3 attempts with exponential backoff on 429/5xx/network, fall
+  // through on persistent failure or 404 model removal; 401/403 stop now).
+  async function callNvidia(): Promise<Response> {
+    let lastRes: Response | null = null;
+    for (const model of MODELS) {
+      const body = {
+        model,
+        messages: [
+          { role: "system", content: SYSTEM(tzOffsetMinutes) },
+          { role: "user", content: paragraph }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.2
+      };
+      let delay = 1000;
+      let res: Response | null = null;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          res = await fetch(NVIDIA_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+            body: JSON.stringify(body),
+            signal: AbortSignal.timeout(120_000)
+          });
+        } catch {
+          if (attempt === 3) break;
+          await new Promise((r) => setTimeout(r, delay));
+          delay = Math.min(delay * 2, 30_000);
+          continue;
+        }
+        if (res.ok) return res;
+        if (res.status === 401 || res.status === 403) return res;
+        if (attempt === 3) break;
+        await new Promise((r) => setTimeout(r, delay));
+        delay = Math.min(delay * 2, 30_000);
+      }
+      if (res) lastRes = res;
+    }
+    if (lastRes) return lastRes;
+    throw new Error("no models available");
+  }
+
+  let nvidiaRes: Response;
+  try {
+    nvidiaRes = await callNvidia();
+  } catch {
+    return new Response(JSON.stringify({ error: "nvidia unreachable" }), { status: 502, headers: { ...corsFor(req), "content-type": "application/json" } });
+  }
 
   if (!nvidiaRes.ok) {
     const text = await nvidiaRes.text();
-    return new Response(JSON.stringify({ error: "nvidia error", detail: text }), { status: 502, headers: { ...corsFor(req), "content-type": "application/json" } });
+    const fwd = nvidiaRes.status === 429 ? 429 : nvidiaRes.status >= 500 ? 502 : nvidiaRes.status;
+    return new Response(JSON.stringify({ error: "nvidia error", status: nvidiaRes.status, detail: text }), { status: fwd, headers: { ...corsFor(req), "content-type": "application/json" } });
   }
 
   const data = await nvidiaRes.json();

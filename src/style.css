@@ -223,19 +223,28 @@ main { flex: 1; padding: 18px 22px 150px; overscroll-behavior-y: contain; }
 }
 .draft-group .empty { color: var(--faint); font-style: italic; font-size: 13px; padding: 4px 0 2px; }
 .draft-row {
-  display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; align-items: center;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-areas: "title move del" "when when when";
+  gap: 8px; align-items: center;
   margin-bottom: 9px;
 }
 .draft-row:last-child { margin-bottom: 0; }
 .draft-title {
-  min-width: 0; background: var(--panel); border: 1px solid var(--line-strong); color: var(--ink);
+  grid-area: title; min-width: 0; width: 100%; background: var(--panel); border: 1px solid var(--line-strong); color: var(--ink);
   padding: 10px 12px; border-radius: 10px; font: inherit; font-size: 14px; outline: none;
 }
 .draft-title:focus { border-color: var(--ink); }
-.draft-dt {
-  background: var(--panel); border: 1px solid var(--line-strong); color: var(--ink);
-  padding: 9px 10px; border-radius: 10px; font: inherit; font-size: 13.5px; color-scheme: light dark;
+.draft-move { grid-area: move; }
+.draft-del { grid-area: del; }
+.draft-when {
+  grid-area: when; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
 }
+.draft-when .picker-trigger { padding: 8px 12px; font-size: 13.5px; }
+.draft-allday {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; color: var(--muted); cursor: pointer; white-space: nowrap;
+}
+.draft-allday input { width: 16px; height: 16px; accent-color: var(--ink); margin: 0; }
 .draft-move, .draft-del {
   appearance: none; border: 1px solid var(--line-strong); background: var(--panel); cursor: pointer;
   height: 38px; padding: 0 10px; border-radius: 10px; font: inherit; font-size: 12.5px; color: var(--muted);
@@ -764,6 +773,7 @@ main { flex: 1; padding: 18px 22px 150px; overscroll-behavior-y: contain; }
 
 /* --- Mobile (≤520px): compact writing bar + 4-line clamped titles --- */
 @media (max-width: 520px) {
+  header { padding-top: calc(30px + env(safe-area-inset-top)); }
   .dock-inner { padding: 10px 12px; }
   .dock-head { margin-bottom: 8px; }
   .bar input { padding: 10px 12px; border-radius: 11px; }
